@@ -332,9 +332,42 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
   [fldDef]
   (map #(str (:fld %) "  " (:type %)) fldDef))
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;  
+;;  Auxiliary functions to map a table to a single map by
+;;   taking one column as key and another as value.
+;;   (and a concrete use-case for viewing knot-tables.)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn map-table-to-hashmap 
+  "Take two columns of a table and transform them to a hash-map (each row becoming a separate map-entry).
+   The key is based on 'keyCol' and the value is taken from 'valCol'."
+  [qTblName keyCol valCol]
+  ;; Can be used to map a knot-table to a hash-map to allow for convenient
+  ;; debugging information
+  (let [lpf (str "(map-table-to-hashmap " qTblName " " keyCol " " valCol)
+        qry (str "SELECT " (qs keyCol) ", " (qs valCol)
+                 "\n\tFROM " qTblName)]
+    (if (table-exists qTblName)
+      (sql/with-query-results res [qry]
+        (let [kk (keyword (str/lower-case keyCol))
+              kv (keyword (str/lower-case valCol))
+              ks (map kk res)
+              vs (map kv res)
+              mapping (apply hash-map (interleave ks vs))
+              ;; identical and better would be
+              ; mapping (zipmap ks vs)
+              ]
+          (doall mapping)))
+      (do
+        (warn lpf " table does not exists (yet)")
+        nil))))
+
+(defn knot-to-hashmap "Extract the knot-table as a hash-map from schema 'vam'."
+  [knotName]
+  (let [qTbl (qsp "vam" knotName)
+        knotId (str/join (conj (vec (take 3 knotName)) "_ID"))]
+    (map-table-to-hashmap qTbl knotId knotName)))
 
 
 
