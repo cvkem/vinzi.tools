@@ -157,6 +157,29 @@
       (debug lpf " sequence " qName " exists already (not created)"))))
 
 
+(defn add-primary-key 
+  "Add a primary key to to a tables. Assuming primary-key is a string or a  sequence of strings that corresponds to valid field-names."
+  [schema tblNme primaryKey]
+  (let [lpf "(primary-key): "
+        qTblNme (qsp schema tblNme)
+        _ (trace lpf " adding primary key " primaryKey)
+        primaryKey (if (string? primaryKey)
+                      (qs primaryKey)
+                      (str/join "," (map qs primaryKey)))
+        _ (trace lpf "primary key changed to: " primaryKey)
+        _ (assert (string? primaryKey))
+;;        table (:nme (split-qualified-name qTblNme))
+        qry (str "ALTER TABLE "
+                 qTblNme
+                 " ADD CONSTRAINT "
+                 tblNme "_pk "
+                 " PRIMARY KEY (" primaryKey ");")]
+    (debug lpf "adding Primary key via query: " qry)
+    (sql/do-commands qry)))
+
+
+
+
 (defn get-create-field-str "Return fieldsnames selected by 'sel' as quotes strings 
   followed by the rest of the string (type, default-values, etc..) 
   and interposed by commas(for usage in a create statement)."
