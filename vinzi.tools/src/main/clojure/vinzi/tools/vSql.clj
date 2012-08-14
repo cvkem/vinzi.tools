@@ -271,6 +271,71 @@
   )
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  Function to fill a table based on a field-definition
+;;  Can be used to generate denormalized tables, where each
+;;  column has it's own sql-query.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(defn fill-table "fill the table 'tblNme' using the query defined by 'fldDef'.
+The 'fldDef' is a vector containing a hash-map per table-item with keys
+  - 'fld':  field in the target table,
+  - 'type': type of the fields
+  - 'src' : name of the matching field from the alias.
+  - 'def' : def of the query that retrieves the fields.
+All queries are LEFT JOIN-ed on the primary key of the target-table. 
+(see patientRecent.clj for an example of usage.)"
+  [tblNme fldDef]
+  (letfn [(create-left-join [qIdField alias matching code]
+             (if code
+               (let [aliasId (qsp alias matching)
+                     select  (str "(" code ") AS " alias)]
+                 (str " LEFT JOIN " select " ON " qIdField " = " aliasId "\n"))
+               ""))  ;; no code, so return the empty string
+          ]
+    (let [lpf "(vinzi.sqlTools/fill-table): "
+          ;; head is the first field. Treated separately
+          head  (first fldDef)
+          idField (:fld head)
+          srcCode (str/trim (:def head))
+          srcAlias "keytbl"
+          qIdField (qsp srcAlias idField)
+          ;; process the rest (will become the left-joins)
+          fldDef (rest fldDef)
+          src   (map :src fldDef)
+          tar   (map :fld fldDef)
+          code  (map :def fldDef)
+          matching (map #(if-let [m (:matching %)] m idField)  fldDef)
+          alias (map #(str (str/lower-case %1) "__" (str/lower-case %2))
+                     src tar)
+          tar   (map qs tar)
+          srcs  (apply str (interpose ", " (cons qIdField src)))
+          tars  (apply str (interpose ", " (cons (qs idField) tar)))
+          ljoins (map #(create-left-join  qIdField %1 %2 %3)
+                      alias matching code)
+          ljoins (apply str ljoins)
+          qry  (str "  INSERT INTO " tblNme "(" tars ")\n"
+                    "  SELECT " srcs "\n"
+                    "  FROM " srcCode " AS " srcAlias "\n"
+                    ljoins ";")
+          ]
+      (debug "Executing query: " qry)
+      (println "\n\nExecuting query (println): " qry "\n\n")
+      (sql/do-commands qry)
+      )))
+
+
+(defn get-create-fields-fldDef 
+  "Extract the fields definition for the create-statement from the 'fldDef'. 
+   (used to create a table that later will be filled via (fill-table), see above."
+  [fldDef]
+  (map #(str (:fld %) "  " (:type %)) fldDef))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 
 
