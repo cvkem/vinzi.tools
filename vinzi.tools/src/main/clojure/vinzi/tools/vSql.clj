@@ -158,7 +158,8 @@
 
 
 (defn get-create-field-str "Return fieldsnames selected by 'sel' as quotes strings 
-  followed by the rest of the string and interposed by commas(for usage in a create statement)."
+  followed by the rest of the string (type, default-values, etc..) 
+  and interposed by commas(for usage in a create statement)."
   [flds sel]
   (let [lpf "(get-create-field-str): "
         fldNames (map #(nth flds %) sel)
@@ -175,6 +176,26 @@
         _ (trace "after quoting fldNames: " fldNames)
         fldNames  (interpose ", " fldNames)]
     (apply str fldNames)))
+
+(defn get-select-field-str 
+  "Return fieldsnames selected by 'sel' as quotes strings followed interposed by commas(for usage in a select statement)."
+  [flds sel]
+  (let [lpf "(get-select-field-str): "
+        fldNames (map #(nth flds %) sel)
+        _ (trace lpf "selected fldNames: " fldNames)
+        fldNames (letfn [(quote-first [org]
+                            (let [org (str/trim org)]
+                              (if (= (first org) \")
+                                ;; return the field name
+                                (re-find #"\"[\w\s]+\"" org)    ;; different from get-create-field-str 
+                                (let [s (str/split org #"\s+")
+                                      head (qs (first s))]
+                                  head))))]                     ;; different from get-create-field-str
+                   (map quote-first fldNames))
+           _ (trace "after quoting fldNames: " fldNames)
+           fldNames  (interpose ", " fldNames)]
+       (apply str fldNames)))
+
 
 
 (defn create-table "Create a table 'qTblName' with fields 'fields' if it does not exist yet. 
