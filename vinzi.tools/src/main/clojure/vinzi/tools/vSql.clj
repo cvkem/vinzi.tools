@@ -44,19 +44,35 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn qs
-  "Surround a string by double quotes (postgres requires this)"
+  "Surround a string by double quotes (postgres requires this), 
+   unless it is already double-quoted (no trimming of spaces on argument)."
   [s]
-  (str "\"" s "\""))
+  (let [startQ (= (first s) \")
+        endQ (= (last s) \")]
+    (if (or startQ endQ)
+      (if (and startQ endQ)
+        s    ;; string is double quoted already
+        (throw (Exception. (str "(vSql/qs) unbalanced quotes in argument: " s ))))
+        (str "\"" s "\""))))
 
 (defn qsp
   "Create a double-qouted string pair for schema.table or table.field."
-  [s t]
-  (str (qs s) "." (qs t)))
+  [schema nme]
+  (str (qs schema) "." (qs nme)))
 
 
 
-(defn sqs "Change s to a single-quoted string." [s]
-  (str "'" s "'"))
+(defn sqs "Change s to a single-quoted sting,
+   unless it is already single-quoted (no trimming of spaces on argument)."
+  [s]
+  (let [startQ (= (first s) \')
+        endQ   (= (last s) \')]
+    (if (or startQ endQ)
+      (if (and startQ endQ)
+        s    ;; string is single quoted already
+        (throw (Exception. (str "(vSql/qs) unbalanced quotes in argument: " s ))))
+        (str "'" s "'"))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Perform clojure-actions on a database while retaining the
@@ -147,7 +163,8 @@
                                 outcome)))))
 
 
-(defn create-sequence "Create a sequence only if it does not exist." [schema seqNme]
+(defn create-sequence "Create a sequence only if it does not exist." 
+  [schema seqNme]
   (let [lpf "(create-sequence): "
         qName (qsp schema seqNme)]
     (if (not (sequence-exists schema seqNme))
@@ -235,7 +252,7 @@
       (debug lpf "trying to drop table: " qTblNme)
       (sql/do-commands drop))
 
-    (if (table-exists qTblNme)
+    (if (table-exists schema tblNme)
       (debug lpf "Table: " qTblNme " exists already (abort create proces)")
       (do
         (debug lpf "creating table" qTblNme)
@@ -248,7 +265,8 @@
 ;;   Functions to drop tables and views and to clear a complete schema.
 ;;
 
-(defn do-commit "Do a commit on the current connection." []
+(defn do-commit "Do a commit on the current connection." 
+  []
   (sql/do-commands "COMMIT;"))
 
 (defn drop-it  
@@ -283,7 +301,8 @@
 
 (defn drop-sequences 
   "Remove all sequences of schema via a CASCADED DROP. 
-   Schema might also be a mask (using %)." [schema]
+   Schema might also be a mask (using %)." 
+  [schema]
   (let [qry (str "SELECT sequence_schema, sequence_name "
                  " FROM information_schema.sequences "
                  " WHERE sequence_schema LIKE '" schema "';")]
@@ -322,7 +341,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(defn fill-table "fill the table 'tblNme' using the query defined by 'fldDef'.
+(defn fill-table "fill the table 'schema'.'tblNme' using the query defined by 'fldDef'.
 The 'fldDef' is a vector containing a hash-map per table-item with keys
   - 'fld':  field in the target table,
   - 'type': type of the fields
@@ -330,7 +349,7 @@ The 'fldDef' is a vector containing a hash-map per table-item with keys
   - 'def' : def of the query that retrieves the fields.
 All queries are LEFT JOIN-ed on the primary key of the target-table. 
 (see patientRecent.clj for an example of usage.)"
-  [tblNme fldDef]
+  [schema tblNme fldDef]
   (letfn [(create-left-join [qIdField alias matching code]
              (if code
                (let [aliasId (qsp alias matching)
@@ -359,7 +378,7 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
           ljoins (map #(create-left-join  qIdField %1 %2 %3)
                       alias matching code)
           ljoins (apply str ljoins)
-          qry  (str "  INSERT INTO " tblNme "(" tars ")\n"
+          qry  (str "  INSERT INTO " (qsp schema tblNme) "(" tars ")\n"
                     "  SELECT " srcs "\n"
                     "  FROM " srcCode " AS " srcAlias "\n"
                     ljoins ";")
@@ -386,13 +405,13 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
 (defn map-table-to-hashmap 
   "Take two columns of a table and transform them to a hash-map (each row becoming a separate map-entry).
    The key is based on 'keyCol' and the value is taken from 'valCol'."
-  [qTblName keyCol valCol]
+  [schema tblNme keyCol valCol]
   ;; Can be used to map a knot-table to a hash-map to allow for convenient
   ;; debugging information
-  (let [lpf (str "(map-table-to-hashmap " qTblName " " keyCol " " valCol)
+  (let [lpf (str "(map-table-to-hashmap " schema " " tblNme " " keyCol " " valCol)
         qry (str "SELECT " (qs keyCol) ", " (qs valCol)
-                 "\n\tFROM " qTblName)]
-    (if (table-exists qTblName)
+                 "\n\tFROM " (qsp schema tblNme))]
+    (if (table-exists schema tblNme)
       (sql/with-query-results res [qry]
         (let [kk (keyword (str/lower-case keyCol))
               kv (keyword (str/lower-case valCol))
@@ -409,9 +428,8 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
 
 (defn knot-to-hashmap "Extract the knot-table as a hash-map from schema 'vam'."
   [knotName]
-  (let [qTbl (qsp "vam" knotName)
-        knotId (str/join (conj (vec (take 3 knotName)) "_ID"))]
-    (map-table-to-hashmap qTbl knotId knotName)))
+  (let [knotId (str/join (conj (vec (take 3 knotName)) "_ID"))]
+    (map-table-to-hashmap "vam" knotName knotId knotName)))
 
 
 

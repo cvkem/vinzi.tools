@@ -3,8 +3,26 @@
   (:require 
     [vinzi.tools
      [vFile :as vFile]
-     [mapCompare :as vMap]]))
+     [mapCompare :as vMap]
+     [vSql :as vSql]]))
 
+
+(deftest vSql-tests
+  (are [x res] (= (vSql/qs x) res)
+       "test"        "\"test\""
+       "\"test\""    "\"test\"")
+  ;; unbalanced quotes throw exception
+  (are [x res] (thrown? Exception (vSql/qs x))
+       "\"test"    
+       "test\"")
+  (are [x res] (= (vSql/sqs x) res)
+       "test"        "'test'"
+       "'test'"    "'test'")
+  ;; unbalanced quotes throw exception
+  (are [x res] (thrown? Exception (vSql/sqs x))
+       "'test"    
+       "test'")
+  )
 
 (deftest vFile-expansion
   (let [currDir (vFile/get-current-dir)]
@@ -55,21 +73,3 @@
     ))
 
 
-(comment   ;; code for testing and as example
-(defn my-tests []
-  (let [r {:a 1 :b 2}
-        rMiss {:c 3 :a 1}
-        rExt  (into r rMiss)
-        rDiff (assoc r :a -5)
-        cmpFlds '(:a :b)
-        mcmp (get-map-comparator cmpFlds)
-        {:keys [get-fields compare-fields compare-maps]} mcmp]
-    (println " The base record is: " r)
-    (println " The selection for comparison are: " cmpFlds)
-    (println "The selected fields of " rExt " are: " (get-fields rExt))
-    (println " comparison to: " rMiss "  returns " (compare-maps r rMiss))
-    (println " rev-comparison to: " rMiss "  returns " (compare-maps rMiss r))
-    (println " comparison to: " rExt "  returns " (compare-maps r rExt))
-    (println " comparison to: " rDiff "  returns " (compare-maps r rDiff))
-    ))
-)
