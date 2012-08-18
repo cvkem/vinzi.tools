@@ -4,7 +4,8 @@
     [vinzi.tools
      [vFile :as vFile]
      [mapCompare :as vMap]
-     [vSql :as vSql]]))
+     [vSql :as vSql]
+     [vDateTime :as vDate]]))
 
 
 (deftest vSql-tests
@@ -70,6 +71,45 @@
         "List of fields is too long.")
     (is (not (compare-fields r '(1 3)))
         "Difference in second value.")
-    ))
+  
+    (let [ar [r r]
+          arLonger [r r r]
+          arShorter [r]
+          rDiff1 [r rMiss]
+          rDiff2 [rExt r]]
+      (is (vMap/compare-map-arrays ar ar))
+      (are [x y] (not (vMap/compare-map-arrays x y))
+           ar arLonger
+           ar arShorter
+           ar rDiff1
+           rDiff1 ar
+           ar rDiff2
+           rDiff2 ar)
+           rDiff
+      )))
 
 
+
+(deftest vDate-sql-date
+  (let [sd (vDate/make-sql-date 2012 1 2    1 2 3)
+        d (java.util.Date. (.getTime sd))
+        ts (java.sql.Timestamp. (.getTime d))
+;;        sd (java.sql.Date. (.getTime d))
+        l  (.getTime d)
+        longStr   (str ts)  ;; format YYYY-MM-DD HH:MM:SS.MS  (ms part is ignored)
+        shortStr  (first (str/split longStr #" "))  ;; format YYYY-MM-DD
+        o  (Object.)]
+    ;; convertions to java.sql.Date
+    (are [x]  (= sd (vDate/convert-to-date x)) d ts l longStr)
+    (is (thrown? java.lang.Exception (vDate/convert-to-date o)))    
+    ;; convertions to java.sql.Date
+    (are [x]  (= ts (vDate/convert-to-timestamp x)) d sd l longStr)
+    (is (thrown? java.lang.Exception (vDate/convert-to-timestamp o)))
+    (let [sd (vDate/make-sql-date 2012 1 2)
+          ts (java.sql.Timestamp. (.getTime sd))
+          longStr   (str ts)
+          shortStr  (first (str/split longStr #" "))]  ;; format YYYY-MM-DD
+      (is (= sd (vDate/convert-to-date shortStr)))
+      (is (= ts (vDate/convert-to-timestamp shortStr)))
+    )))
+        

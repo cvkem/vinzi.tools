@@ -122,7 +122,6 @@
 
 (defn table-exists "Check wether a 'table' exists in 'schema' (using current db-connection)"
   ;; the alternative would be to inspect pg_tables (postgres specific)
-  ;; (a more comprehensive function including logging is found in vinzi.tools.sqlTools
   [schema table]
   (let [qry (format "select * from information_schema.tables WHERE table_name LIKE '%s' AND table_schema = '%s';" table schema)]
      (sql/with-query-results res [qry]
@@ -357,7 +356,7 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
                  (str " LEFT JOIN " select " ON " qIdField " = " aliasId "\n"))
                ""))  ;; no code, so return the empty string
           ]
-    (let [lpf "(vinzi.sqlTools/fill-table): "
+    (let [lpf "(vSql/fill-table): "
           ;; head is the first field. Treated separately
           head  (first fldDef)
           idField (:fld head)
