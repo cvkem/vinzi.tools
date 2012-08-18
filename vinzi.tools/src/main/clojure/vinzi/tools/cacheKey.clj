@@ -68,8 +68,9 @@
     v))
 
 (defn inc-get-cache-entry "Return the current value of a counter and increment it afterwards." [cache k]
-  (let [v (get-cache-entry cache k)]
-    (println "received value " v " of type " (type v))
+  (let [lpf "(inc-get-cache-entry): "
+        v (get-cache-entry cache k)]
+    (trace lpf "received value " v " of type " (type v))
     (set-cache-entry cache k (inc v))
     v))
 

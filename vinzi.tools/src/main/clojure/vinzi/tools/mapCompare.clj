@@ -29,3 +29,27 @@
           :compare-maps   compare-maps} ))
 
 
+(defn compare-map-arrays 
+  "Compare two arrays of maps, using all keys of the first map of array 'ar1'. Maps should all have the same number of keys." 
+  [ar1 ar2]
+  (let [lpf "(compare-map-arrays): "]
+   (if (not (or (seq ar1) (seq ar2)))
+     true   ;; both are nil
+     (if-not (= (count ar1) (count ar2))
+       (do
+         (trace lpf "The two arrays differ in size (return false)")
+         false)
+       (let [k (keys (first ar1))
+             cnt (count k)
+             {:keys [compare-maps]} (get-map-comparator k)
+             cmpFunc (fn [[m1 m2]] 
+                       (when (or (not= (count m1) cnt)
+                                 (not= (count m2) cnt)
+                                 (not (compare-maps m1 m2)))
+                         [m1 m2]))]
+             (if-let [diff (some cmpFunc (map #(vector %1 %2) ar1 ar2))]
+               (do 
+                 (trace lpf "First difference observed for maps: " (with-out-str (pprint diff)))
+                 false)
+               true))))))
+
