@@ -3,12 +3,12 @@
 (refer-clojure)
 
 (defn find-symbol-in-ns [ns regExp]
-  (filter #(re-find regExp (str (second %))) (ns-map (if (string? ns (symbol ns) ns)))))
+  (filter #(re-find regExp (str (second %))) (ns-map (if (string? ns) (symbol ns) ns))))
 
 
 (defn show-methods
   "Retrieve all methods of (the class of) a java-object."
-  ([obj]  (showMethods obj ""))
+  ([obj]  (show-methods obj ""))
   ([obj mask]
      (for [method (seq (.getMethods (class obj)))
 	   :let [method-name (.getName method)]
@@ -17,7 +17,7 @@
 
 (defn show-fields
   "Retrieve all fields of a (the class of a) java object."
-  ([obj] (showFields obj ""))
+  ([obj] (show-fields obj ""))
   ([obj mask]
      (for [field (seq (.getFields (class obj)))
 	   :let [field-name (.getName field)]
