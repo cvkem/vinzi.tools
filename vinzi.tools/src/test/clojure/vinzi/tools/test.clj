@@ -132,4 +132,19 @@
       (is (= sd (vDate/convert-to-date shortStr)))
       (is (= ts (vDate/convert-to-timestamp shortStr)))
     )))
-        
+
+(deftest test_split-qualified-name
+  (are [q schema tbl] (= (map (vSql/split-qualified-name q) [:schema :table]) '(schema tbl))
+       (vSql/qsp "sch" "tbl")   "sch"      "tbl"
+       "\"schema\".\"table\""   "schema"   "table"
+       "\"sch_ema\".\"table\""   "sch_ema"   "table"
+       "\"schema\".\"t_able\""   "schema"   "t_able"
+       ;; new version excepts names without schema, as long as they are quoted.
+       (vSql/qs "table")        nil        "table")
+  ;; New version of split throws exceptions on errors in the input.
+  (are [x] (thrown? Exception (vSql/split-qualified-name x))
+       nil
+       "noquote.table"
+       "\"unbalanced_quote"))
+  
+  

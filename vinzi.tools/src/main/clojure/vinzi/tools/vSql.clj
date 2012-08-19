@@ -469,6 +469,34 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
 
 
 
+(defn split-qualified-name 
+  "Split a qualified name by returning a map with a schema :schema and a name :table."
+  [qNme]
+  (let [lpf "(split-qualified-name): "
+        qNme (str/trim qNme)]
+    (if (= (first qNme) \")
+      (let [res (if-let [res (re-find #"\"([\w\s_]*)\"\.\"([\w\s_]*)\"" qNme)]
+                  res
+                  (re-find #"\"([\w\s_]*)\"" qNme))
+            [whole schema tbl] res]
+          (if (= (count whole) (count qNme))
+            (if tbl
+              {:schema schema
+               :table  tbl}
+              {:schema nil     
+               :table  schema})
+            (let [msg (str lpf " extracted schema=" schema
+                   " and table=" tbl
+                   ". This does not cover full string " qNme)]
+                 (error msg)
+                 (throw (Exception. msg)))))
+      (let [msg (str lpf " requires a fully qualified name "
+                     " (including double quotes). Received: " qNme)]
+        (error msg)
+        (throw (Exception. msg))))))
+
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  Auxiliary routines to perform operation with defaultDb
