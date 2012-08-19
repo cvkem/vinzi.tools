@@ -103,6 +103,7 @@
        "varchar"   "abc"  "abc"
        "varchar(30)" "abc" "abc"
        "TeXt"        "abc" "abc"
+       "character varying"  "abc" "abc"
        :double       "2.3" 2.3)
   (let [mc (vMap/get-map-str-convertor {:i "integer" :d :double :s "text"})]
     (is (= (map (mc {:i " 1" :d "1.0" :s "abc"}) [:i :d :s]) '(1 1.0 "abc"))
@@ -144,7 +145,7 @@
   ;; New version of split throws exceptions on errors in the input.
   (are [x] (thrown? Exception (vSql/split-qualified-name x))
        nil
-       "noquote.table"
+       "noquoted.name"
        "\"unbalanced_quote"))
   
   

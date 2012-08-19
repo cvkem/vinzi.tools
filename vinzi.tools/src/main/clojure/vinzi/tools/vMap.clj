@@ -73,7 +73,7 @@
                          (case tp
                            ("integer" :int) (fn [x] (Integer/parseInt (str/trim x)))
                            ("double precision" "double" "real" :real :double) (fn [x] (Double/parseDouble (str/trim x)))
-                           ("string" "text" "varchar")          (fn [x] x)
+                           ("string" "text" "varchar" "character varying")          (fn [x] x)
                            (throw (Exception. (str "Unknown type: " tp))))))]
          (let [convertors (map (fn[[k v]] (vector k (get-convertor v))) (seq typeMap))]
            ;;(pprint convertors)
