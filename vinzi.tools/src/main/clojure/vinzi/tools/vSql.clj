@@ -433,3 +433,70 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
 
 
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;   functions to obtain information on the columns of a table
+;;    (obtained from 'information-schema')
+;;
+
+
+(defn get-col-info "get information on all columns (limited set)
+   (Assumes that the table is located in the current catalog)."
+  [schema tblNme]
+  (let [catalog (.getCatalog (sql/connection))
+        sql (str "SELECT column_name, data_type, ordinal_position "
+                 " FROM information_schema.columns "
+                 " WHERE table_catalog = " (sqs catalog)
+                 "    AND table_schema = " (sqs schema)
+                 "    AND table_name = " (sqs tblNme))]
+    (trace "(get-col-info): running query: " sql)
+    (sql/with-query-results res [sql]
+                            (trace "received columns: " (with-out-str (pprint res)))
+                            (doall res))))
+
+
+
+(defn get-col-type "Get the type of a column."
+  [catalog schema tblNme colNme]
+  (let [colDefs (get-col-info catalog schema tblNme)
+;	_  (do (println colDefs)   (flush))
+	colDefs (filter #(= (:column_name %) colNme) colDefs)]
+    (trace "looking for colNme: " colNme)
+    (trace "filtered colDefs are: " colDefs)
+    (assert (= (count colDefs) 1))
+    (:data_type (first colDefs))))
+
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  Auxiliary routines to perform operation with defaultDb
+;;
+
+
+(defn defDb-do-commands
+  "Execute a 'cmd' for it's side effects on the database.
+   If you want to view the output then use 'defDb-show-query-results'."
+  [& cmds]
+  (println "Use ShowSql if you want to view the output")
+  (sql/with-connection defaultDb (apply sql/do-commands cmds)))
+
+(defn defDb-show-query-results "Open the default database, run each of the 'cmds' and print the results."
+  [& cmds]
+  (letfn [(doShow [cmd]
+		   (println "running command: " cmd)
+		   (sql/with-query-results res
+		     [(str cmd)]
+		     (doseq [rec res]
+		       (println rec))))
+	   ]
+    (sql/with-connection defaultDb
+      (doseq [cmd cmds]
+	(doShow cmd)))))
+
+(defmacro defDb-function "Open the default database and evaluate 'cmd' in this scope."
+  [cmd]
+  `(sql/with-connection defaultDb ~cmd)) 
+
+
