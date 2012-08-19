@@ -1,9 +1,10 @@
 (ns vinzi.tools.test
   (:use clojure.test)
-  (:require 
+  (:require
+    [clojure.string :as str]
     [vinzi.tools
      [vFile :as vFile]
-     [mapCompare :as vMap]
+     [vMap :as vMap]
      [vSql :as vSql]
      [vDateTime :as vDate]]))
 
