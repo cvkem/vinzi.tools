@@ -1,4 +1,4 @@
-(ns vinzi.tools.mapCompare
+(ns vinzi.tools.vMap
    (:use	[clojure [pprint :only [pprint pp]]]
         [clojure [stacktrace :only [print-stack-trace root-cause]]]
         [clojure.tools [logging :only [error info trace debug warn]]]))
