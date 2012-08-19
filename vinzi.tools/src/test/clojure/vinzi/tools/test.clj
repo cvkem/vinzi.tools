@@ -90,6 +90,25 @@
       )))
 
 
+(deftest test-map-str-convertor
+  (println "testing the get-map-str-convertor")
+  (are [tp val res]
+       (let [mc (vMap/get-map-str-convertor {:a tp})]
+         (= (:a (mc {:a val})) res))
+;         (= (:a ((vMap/get-map-str-convertor {:a tp}) {:a val})) 1)
+       "integer"   "1"    1
+       "integer"   " 1"   1
+       "double"    "1.0"  1.0
+       "string"    "abc"  "abc"
+       "varchar"   "abc"  "abc"
+       "varchar(30)" "abc" "abc"
+       "TeXt"        "abc" "abc"
+       :double       "2.3" 2.3)
+  (let [mc (vMap/get-map-str-convertor {:i "integer" :d :double :s "text"})]
+    (is (= (map (mc {:i " 1" :d "1.0" :s "abc"}) [:i :d :s]) '(1 1.0 "abc"))
+        "Comparing larger record failed."))
+  )
+
 
 (deftest vDate-sql-date
   (let [sd (vDate/make-sql-date 2012 1 2    1 2 3)

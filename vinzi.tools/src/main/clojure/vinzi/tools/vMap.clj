@@ -1,7 +1,8 @@
 (ns vinzi.tools.vMap
    (:use	[clojure [pprint :only [pprint pp]]]
         [clojure [stacktrace :only [print-stack-trace root-cause]]]
-        [clojure.tools [logging :only [error info trace debug warn]]]))
+        [clojure.tools [logging :only [error info trace debug warn]]])
+   (:require [clojure.string :as str]))
 
 (defn get-map-comparator 
   "Returns a comparator that allows maps to be compared on a predefined set of keys, to extract value-seqs from the map, and to compare mmaps to a values. The relevant keys are determined by cmpFlds." 
@@ -53,3 +54,28 @@
                  false)
                true))))))
 
+
+(defn get-map-str-convertor 
+  "Takes a map where values are the destination types and returns a function that when 
+   passes a map containing strings as values returns a new map with the strings converted to 
+   the types defined in type-map.
+   (type-map should contains types as returned by sql (meta-data))." 
+  [typeMap]
+  {:pre [(map? typeMap)]}
+  (letfn [(get-convertor [tp]
+                         (let [tp (if (string? tp)
+                                    (let [tp (-> tp (str/trim) (str/lower-case))]
+                                      (if (.startsWith tp "varchar") 
+                                        "varchar" tp))
+                                    (if (keyword? tp)
+                                      tp
+                                      (throw (Exception. (str "Obtained type " tp " which is not a string or keyword")))))]
+                         (case tp
+                           ("integer" :int) (fn [x] (Integer/parseInt (str/trim x)))
+                           ("double precision" "double" "real" :real :double) (fn [x] (Double/parseDouble (str/trim x)))
+                           ("string" "text" "varchar")          (fn [x] x)
+                           (throw (Exception. (str "Unknown type: " tp))))))]
+         (let [convertors (map (fn[[k v]] (vector k (get-convertor v))) (seq typeMap))]
+           ;;(pprint convertors)
+           (fn [m]
+             (into {} (map (fn [[k conv]] [ k (conv (get m k))]) convertors))))))
