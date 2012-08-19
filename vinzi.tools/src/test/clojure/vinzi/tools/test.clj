@@ -104,10 +104,14 @@
        "varchar(30)" "abc" "abc"
        "TeXt"        "abc" "abc"
        "character varying"  "abc" "abc"
+       "date"        "2012-01-02" (vDate/make-sql-date 2012 1 2)
+       "timestamp "  "2012-01-02 01:02:03.456" (java.sql.Timestamp. (.getTime (vDate/make-sql-date 2012 1 2    1 2 3)))
+       "timestamp without time zone"   "2012-01-02 01:02:03.456" (java.sql.Timestamp. (.getTime (vDate/make-sql-date 2012 1 2    1 2 3)))
        :double       "2.3" 2.3)
+  
   (let [mc (vMap/get-map-str-convertor {:i "integer" :d :double :s "text"})]
     (is (= (map (mc {:i " 1" :d "1.0" :s "abc"}) [:i :d :s]) '(1 1.0 "abc"))
-        "Comparing larger record failed."))
+        "Comparing with multiple keys failed."))
   )
 
 

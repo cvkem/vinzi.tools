@@ -2,7 +2,9 @@
    (:use	[clojure [pprint :only [pprint pp]]]
         [clojure [stacktrace :only [print-stack-trace root-cause]]]
         [clojure.tools [logging :only [error info trace debug warn]]])
-   (:require [clojure.string :as str]))
+   (:require [clojure.string :as str]
+             [vinzi.tools
+              [vDateTime :as vDate]]))
 
 (defn get-map-comparator 
   "Returns a comparator that allows maps to be compared on a predefined set of keys, to extract value-seqs from the map, and to compare mmaps to a values. The relevant keys are determined by cmpFlds." 
@@ -66,14 +68,24 @@
                          (let [tp (if (string? tp)
                                     (let [tp (-> tp (str/trim) (str/lower-case))]
                                       (if (.startsWith tp "varchar") 
-                                        "varchar" tp))
+                                        :string
+                                        (if (.startsWith tp "timestamp")
+                                          :timestamp
+                                          tp)))
                                     (if (keyword? tp)
                                       tp
                                       (throw (Exception. (str "Obtained type " tp " which is not a string or keyword")))))]
                          (case tp
-                           ("integer" :int) (fn [x] (Integer/parseInt (str/trim x)))
-                           ("double precision" "double" "real" :real :double) (fn [x] (Double/parseDouble (str/trim x)))
-                           ("string" "text" "varchar" "character varying")          (fn [x] x)
+                           ("integer" :int) 
+                               (fn [x] (Integer/parseInt (str/trim x)))
+                           ("double precision" "double" "real" :real :double) 
+                               (fn [x] (Double/parseDouble (str/trim x)))
+                           (:string :text "string" "text" "varchar" "character varying")
+                               (fn [x] x)
+                           (:date "date")  
+                               vDate/convert-to-date
+                           (:timestamp "timestamp") 
+                               vDate/convert-to-timestamp
                            (throw (Exception. (str "Unknown type: " tp))))))]
          (let [convertors (map (fn[[k v]] (vector k (get-convertor v))) (seq typeMap))]
            ;;(pprint convertors)

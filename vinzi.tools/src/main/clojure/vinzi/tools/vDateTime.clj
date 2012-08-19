@@ -136,7 +136,7 @@
      ))
 )
 
-(defn convert-to-date "Convert a date-like object to a java.sql.Date "
+(defn convert-to-date "Convert a date-like object or date-formated string to a java.sql.Date "
   [x] 
   (let [tp (type x)]
     (if (= tp java.sql.Date)
@@ -151,7 +151,7 @@
             (throw (Exception. (str "no conversion for value " x " of type " tp))))))))) 
 
 (defn convert-to-timestamp 
-  "Convert a date-like object to a java.sql.Timestamp "
+  "Convert a date-like object or date-formated string to a java.sql.Timestamp "
   [x] 
   (let [tp (type x)]
     (if (= tp java.sql.Timestamp)
