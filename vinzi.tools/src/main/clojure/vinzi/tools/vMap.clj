@@ -86,6 +86,10 @@
                                vDate/convert-to-date
                            (:timestamp "timestamp") 
                                vDate/convert-to-timestamp
+                           (:boolean "boolean") (fn [x] (case (str/lower-case (str/trim x))
+                                                          ("t" "true") true
+                                                          ("f" "false") false
+                                                          (throw (Exception. (str "(vMap/get-map-str-convertor): Can not map value: " x " to a boolean")))))
                            (throw (Exception. (str "Unknown type: " tp))))))]
          (let [convertors (map (fn[[k v]] (vector k (get-convertor v))) (seq typeMap))]
            ;;(pprint convertors)

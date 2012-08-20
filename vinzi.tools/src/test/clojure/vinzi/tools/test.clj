@@ -107,6 +107,11 @@
        "date"        "2012-01-02" (vDate/make-sql-date 2012 1 2)
        "timestamp "  "2012-01-02 01:02:03.456" (java.sql.Timestamp. (.getTime (vDate/make-sql-date 2012 1 2    1 2 3)))
        "timestamp without time zone"   "2012-01-02 01:02:03.456" (java.sql.Timestamp. (.getTime (vDate/make-sql-date 2012 1 2    1 2 3)))
+       "boolean"     "true"  true
+       :boolean      " false " false
+       :boolean      "T"       true
+       "boolean"      "f"       false
+       :boolean      "F"       false
        :double       "2.3" 2.3)
   
   (let [mc (vMap/get-map-str-convertor {:i "integer" :d :double :s "text"})]
