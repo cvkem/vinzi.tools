@@ -47,13 +47,16 @@
   "Surround a string by double quotes (postgres requires this), 
    unless it is already double-quoted (no trimming of spaces on argument)."
   [s]
-  (let [startQ (= (first s) \")
-        endQ (= (last s) \")]
-    (if (or startQ endQ)
-      (if (and startQ endQ)
-        s    ;; string is double quoted already
-        (throw (Exception. (str "(vSql/qs) unbalanced quotes in argument: " s ))))
-        (str "\"" s "\""))))
+  (let [s (str s)]
+    (if (seq s)
+      (let [startQ (= (first s) \")
+            endQ (= (last s) \")]
+        (if (or startQ endQ)
+          (if (and startQ endQ)
+            s    ;; string is double quoted already
+            (throw (Exception. (str "(vSql/qs) unbalanced quotes in argument: " s ))))
+          (str "\"" s "\"")))
+      "\"\"")))
 
 (defn qsp
   "Create a double-qouted string pair for schema.table or table.field."
@@ -65,13 +68,16 @@
 (defn sqs "Change s to a single-quoted sting,
    unless it is already single-quoted (no trimming of spaces on argument)."
   [s]
-  (let [startQ (= (first s) \')
-        endQ   (= (last s) \')]
-    (if (or startQ endQ)
-      (if (and startQ endQ)
-        s    ;; string is single quoted already
-        (throw (Exception. (str "(vSql/qs) unbalanced quotes in argument: " s ))))
-        (str "'" s "'"))))
+  (let [s (str s)]
+    (if (seq s)
+      (let [startQ (= (first s) \')
+            endQ   (= (last s) \')]
+        (if (or startQ endQ)
+          (if (and startQ endQ)
+            s    ;; string is single quoted already
+            (throw (Exception. (str "(vSql/qs) unbalanced quotes in argument: " s ))))
+          (str "'" s "'")))
+      "''")))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
