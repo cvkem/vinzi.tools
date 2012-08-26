@@ -10,6 +10,7 @@
 
 
 (deftest vSql-tests
+  ;; testing qs
   (are [x res] (= (vSql/qs x) res)
        "test"        "\"test\""
        "\"test\""    "\"test\"")
@@ -17,6 +18,8 @@
   (are [x res] (thrown? Exception (vSql/qs x))
        "\"test"    
        "test\"")
+  
+  ;; testing sqs
   (are [x res] (= (vSql/sqs x) res)
        "test"        "'test'"
        "'test'"    "'test'")
@@ -24,6 +27,16 @@
   (are [x res] (thrown? Exception (vSql/sqs x))
        "'test"    
        "test'")
+  
+  ;; testing strip-dQuotes
+  (are [x res] (= (vSql/strip-dQuotes x) res)
+       "\"test\""        "test"
+       "test"            "test")
+  ;; unbalanced quotes throw exception
+  (are [x res] (thrown? Exception (vSql/strip-dQuotes x))
+       "\"test"    
+       "test\"")
+  
   )
 
 (deftest vFile-expansion

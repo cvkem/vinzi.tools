@@ -79,6 +79,21 @@
           (str "'" s "'")))
       "''")))
 
+(defn strip-dQuotes 
+  "Strip the double-quotes from a string. Throw an exception when quotes are unbalanced. (does no trim on string)"
+  [s]
+    (let [s (str s)]
+    (if (seq s)
+      (let [startQ (= (first s) \")
+            endQ (= (last s) \")]
+        (if (or startQ endQ)
+          (if (and startQ endQ)
+            (apply str (drop-last (rest s)))    ;; string is double quoted, so strip first and last
+            (throw (Exception. (str "(vSql/qs) unbalanced quotes in argument: " s ))))
+          s))  ;; no double quotes, so return s
+      "\"\"")))
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Perform clojure-actions on a database while retaining the
@@ -129,7 +144,9 @@
 (defn table-exists "Check wether a 'table' exists in 'schema' (using current db-connection)"
   ;; the alternative would be to inspect pg_tables (postgres specific)
   [schema table]
-  (let [qry (format "select * from information_schema.tables WHERE table_name LIKE '%s' AND table_schema = '%s';" table schema)]
+  (let [schema (strip-dQuotes schema)
+        table  (strip-dQuotes table)
+        qry (format "select * from information_schema.tables WHERE table_name LIKE '%s' AND table_schema = '%s';" table schema)]
      (sql/with-query-results res [qry]
             (let [outcome (if (seq res)
                             true
@@ -153,6 +170,8 @@
 
 (defn sequence-exists "Check if sequence exists." [schema seqNme]
   (let [lpf "(sequence-exists): "
+        seqNme (strip-dQuotes seqNme)
+        schema (strip-dQuotes schema)
         qName (qsp schema seqNme)]
     (let [qry (str "select * from information_schema.sequences "
                    "\nWHERE sequence_name = " (sqs seqNme)
@@ -183,6 +202,7 @@
   "Add a primary key to to a tables. Assuming primary-key is a string or a  sequence of strings that corresponds to valid field-names."
   [schema tblNme primaryKey]
   (let [lpf "(primary-key): "
+        tblNme (strip-dQuotes tblNme)  ;; needed for primary key
         qTblNme (qsp schema tblNme)
         _ (trace lpf " adding primary key " primaryKey)
         primaryKey (if (string? primaryKey)
@@ -194,7 +214,7 @@
         qry (str "ALTER TABLE "
                  qTblNme
                  " ADD CONSTRAINT "
-                 tblNme "_pk "
+                 (qs (str tblNme "_pk "))
                  " PRIMARY KEY (" primaryKey ");")]
     (debug lpf "adding Primary key via query: " qry)
     (sql/do-commands qry)))
@@ -290,7 +310,8 @@
   "Remove all tables and view from schema via a CASCADED DROP. 
    Schema might also be a mask (using %)." 
   [schema]
-  (let [qry (str "SELECT table_type, table_schema, table_name "
+  (let [schema (strip-dQuotes schema)
+        qry (str "SELECT table_type, table_schema, table_name "
                  " FROM information_schema.tables "
                  " WHERE table_schema LIKE '" schema "';")]
     (sql/with-query-results res [qry]
@@ -308,7 +329,8 @@
   "Remove all sequences of schema via a CASCADED DROP. 
    Schema might also be a mask (using %)." 
   [schema]
-  (let [qry (str "SELECT sequence_schema, sequence_name "
+  (let [schema (strip-dQuotes schema)
+        qry (str "SELECT sequence_schema, sequence_name "
                  " FROM information_schema.sequences "
                  " WHERE sequence_schema LIKE '" schema "';")]
     (sql/with-query-results res [qry]
@@ -319,7 +341,8 @@
   "Remove all routines of schema via a CASCADED DROP. 
    Schema might also be a mask (using %)." 
   [schema]
-  (let [qry (str "SELECT routine_schema, routine_name "
+  (let [schema (strip-dQuotes schema)
+        qry (str "SELECT routine_schema, routine_name "
                  " FROM information_schema.routines "
                  " WHERE routine_schema LIKE '" schema "';")]
     (trace "Routines can not be dropped, unless you know the parameters")
@@ -450,6 +473,8 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
    (Assumes that the table is located in the current catalog)."
   [schema tblNme]
   (let [catalog (.getCatalog (sql/connection))
+        schema  (strip-dQuotes schema)
+        tblNme  (strip-dQuotes tblNme)
         sql (str "SELECT column_name, data_type, ordinal_position "
                  " FROM information_schema.columns "
                  " WHERE table_catalog = " (sqs catalog)
@@ -472,6 +497,43 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
     (assert (= (count colDefs) 1))
     (:data_type (first colDefs))))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  Materializing views (and manage the corresponding tables.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn materialize-view 
+  "Take a view and materialize it as a table and add a primary key (sequence of field-names). 
+   Compute colDefs only if not provided. (database might be slow to commit to information_schema)."
+  ([schema view table primary-key]
+     (let [colDefs (get-col-info schema view)]
+       (materialize-view schema view table primary-key colDefs)))
+  ([schema view table primary-key colDefs]
+    (let [lpf "(vSql/materialize-view): "]
+      (letfn [(create-mat-table []
+                                (let [flds (map #(str (:column_name %)
+                                                      "  " (:data_type %)) colDefs)]
+                                  (create-table schema table flds true)))
+              (materialize-view []
+                                (let [fldStr  (str/join ", "
+                                                  (map #(qs (str/trim (:column_name %))) colDefs))
+                                      qry (str "INSERT INTO " (qsp schema table)
+                                               " (" fldStr ") \n"
+                                               "SELECT " fldStr "\n"
+                                               "FROM " (qsp schema view))]
+                                  (trace   lpf "qry: " qry)
+                                  (sql/do-commands qry)))
+              (add-primaryKey []
+                              (when (seq primary-key)
+                                (add-primary-key schema table primary-key))) ]
+             ;; main loop
+             (if (table-exists schema view)
+                (do
+                  (create-mat-table)
+                  (materialize-view)
+                  (add-primaryKey))
+                ;; throw exception (no error-msg first)
+                (throw (Exception. (str lpf "View " (qsp schema view) " does not exist."))))))))
 
 
 
@@ -532,5 +594,4 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
 (defmacro defDb-function "Open the default database and evaluate 'cmd' in this scope."
   [cmd]
   `(sql/with-connection defaultDb ~cmd)) 
-
 
