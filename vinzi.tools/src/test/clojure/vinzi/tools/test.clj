@@ -156,6 +156,27 @@
       (is (= ts (vDate/convert-to-timestamp shortStr)))
     )))
 
+
+(deftest vDate-day-of-week
+  (are [y m d res] (= (vDate/get-day-of-week (vDate/make-sql-date y m d)) res)
+       1969 03 24  2   ;; monday
+       2012 8 27  2    ;; monday
+       2012 8  26  1   ;; sunday
+       2012 8 25  7    ;; saterday
+       2012 8 06  2)
+  )
+
+(deftest vDate-dayOffset
+  (are [y m d res] (= (str (vDate/get-date-dayOffset (vDate/make-sql-date y m d) -7)) res)
+       2012 8 27  "2012-08-20"
+       2012 8  7  "2012-07-31"
+       2012 3  7  "2012-02-29"    ;; leap-year
+       2011 3  7  "2011-02-28"    ;; no leap-year
+;;  2000 has been corrected, but (java-dates assume leap-year !!)       
+;;       2000 3  7  "2000-02-28"    ;; no leap-year (special case)
+       2012 1  7  "2011-12-31"
+  ))
+
 (deftest test_split-qualified-name
   (are [q schema tbl] (= (map (vSql/split-qualified-name q) [:schema :table]) '(schema tbl))
        (vSql/qsp "sch" "tbl")   "sch"      "tbl"

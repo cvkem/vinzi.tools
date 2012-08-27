@@ -68,6 +68,13 @@
 (def Interval3yrsMillis  (long (* 3 (/ Interval40yrsMillis 40))))
 (def Interval5yrsMillis  (long (/ Interval40yrsMillis 8)))
 
+(def Interval1weekMillis  (long (- (get-time-millis 2012 1 8) (get-time-millis 2012 1 1))))
+(def Interval1dayMillis  (long (- (get-time-millis 2012 1 2) (get-time-millis 2012 1 1))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; functions for string-conversion and ymd transformations
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn str-to-sql-date 
   "Parse a string and turn is in an sql-date." [s]
@@ -108,18 +115,42 @@
   ([] (get-ymd-date Now))
   ([dt]
      (let [dt (if (string? dt)
-		dt
-		(if (= (type dt) java.sql.Date)
-		  (str dt)
-		  (if (= (type dt) java.util.Date)
-		    (str (get-timestamp dt))
-		    (error "(get-ymd-date): type of " dt " not valid."))))
-	   values (re-find #"(\d{4})-(\d{2})-(\d{2})" dt)
-	   [year month day] (map #(Long/parseLong %) (drop 1 values))]
+                dt
+                (if (= (type dt) java.sql.Date)
+                  (str dt)
+                  (if (= (type dt) java.util.Date)
+                    (str (get-timestamp dt))
+                    (error "(get-ymd-date): type of " dt " not valid."))))
+           values (re-find #"(\d{4})-(\d{2})-(\d{2})" dt)
+           [year month day] (map #(Long/parseLong %) (drop 1 values))]
        {:year year
-	:month month
-	:day day})))
+        :month month
+        :day day})))
 
+(defn get-day-of-week "Get day of week for a date-object using the java.util.GregorianCalendar (SUNDAY=1)."
+  ([] (get-day-of-week Now))
+  ([dt]
+    (let [{:keys [year month day]} (get-ymd-date dt)
+          cal  (java.util.GregorianCalendar. year (dec month) day)]
+      (.get cal java.util.GregorianCalendar/DAY_OF_WEEK)
+      )))
+
+(defn get-TS-dayOffset
+  "Get the sql-timestamp at a certain dayOffset of 'dt'. A dayOffset of -7 corresponds to last week."
+  [dt dayOffset]
+  (let [offset (* dayOffset Interval1dayMillis)
+        millis (.getTime dt)
+        newMillis (+ millis offset)]
+    (java.sql.Timestamp. newMillis)))
+
+
+(defn get-date-dayOffset
+  "Get the sql-timestamp at a certain dayOffset of 'dt'. A dayOffset of -7 corresponds to last week."
+  [dt dayOffset]
+  (let [offset (* dayOffset Interval1dayMillis)
+        millis (.getTime dt)
+        newMillis (+ millis offset)]
+    (java.sql.Date. newMillis)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
