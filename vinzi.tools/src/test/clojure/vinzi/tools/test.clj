@@ -44,10 +44,12 @@
     (println "Running tests regarding file-expansion")
     (are [x y] (= (vFile/get-path-dir x) y)
          "test"          currDir
+         "test/"          currDir
          "dir/test"      (str currDir vFile/FileSep "dir")
          "/dir/test"     "/dir"
          "./test"        currDir
-         "./dir/test"    (str currDir vFile/FileSep "dir"))
+         "./dir/test"    (str currDir vFile/FileSep "dir")
+         "./dir/test/"    (str currDir vFile/FileSep "dir"))
         ))
 
 (deftest mapCompare-tests

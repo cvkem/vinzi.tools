@@ -68,7 +68,8 @@
                    (apply str (drop 2 (seq path)))
                    path))))
 
-(defn get-path-dir "Return the containing directory/folder of path. "
+(defn get-path-dir 
+  "Return the containing directory/folder of path. If path ends in directory then the parent directory will be returned. "
   [path]
   (let [path (extend-path path true)]
     (-> path
