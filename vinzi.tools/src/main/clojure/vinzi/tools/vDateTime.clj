@@ -73,6 +73,10 @@
 (def Interval1minuteMillis  (long (/ Interval1dayMillis (* 24 60))))
 
 
+
+
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; functions for string-conversion and ymd transformations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -128,40 +132,6 @@
         :month month
         :day day})))
 
-(defn get-day-of-week "Get day of week for a date-object using the java.util.GregorianCalendar (SUNDAY=1)."
-  ([] (get-day-of-week Now))
-  ([dt]
-    (let [{:keys [year month day]} (get-ymd-date dt)
-          cal  (java.util.GregorianCalendar. year (dec month) day)]
-      (.get cal java.util.GregorianCalendar/DAY_OF_WEEK)
-      )))
-
-(defn get-TS-dayOffset
-  "Get the sql-timestamp at a certain dayOffset of 'dt'. A dayOffset of -7 corresponds to last week."
-  [dt dayOffset]
-  (let [offset (* dayOffset Interval1dayMillis)
-        millis (.getTime dt)
-        newMillis (+ millis offset)]
-    (java.sql.Timestamp. newMillis)))
-
-(defn get-TS-minuteOffset
-  "Get the sql-timestamp at a certain minuteOffset of 'dt'. A dayOffset of -1 corresponds to 1 minute earlier.
-   Can operate on time-stamps and on java.util.Date. (java.sql.Date does not have sufficient precision)"
-  [dt minuteOffset]
-  (let [offset (* minuteOffset Interval1minuteMillis)
-        millis (.getTime dt)
-        newMillis (+ millis offset)]
-    (java.sql.Timestamp. newMillis)))
-
-
-(defn get-date-dayOffset
-  "Get the sql-timestamp at a certain dayOffset of 'dt'. A dayOffset of -7 corresponds to last week."
-  [dt dayOffset]
-  (let [offset (* dayOffset Interval1dayMillis)
-        millis (.getTime dt)
-        newMillis (+ millis offset)]
-    (java.sql.Date. newMillis)))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; conversion routines to ensure the correct types of data-values for sql
@@ -206,5 +176,92 @@
           (if (= tp java.lang.String)
             (convert-to-timestamp (str-to-sql-date x))
             (throw (Exception. (str "no conversion for value " x " of type " tp))))))))) 
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; functions to manage offsets
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+(defn get-day-of-week "Get day of week for a date-object using the java.util.GregorianCalendar (SUNDAY=1)."
+  ([] (get-day-of-week Now))
+  ([dt]
+    (let [{:keys [year month day]} (get-ymd-date dt)
+          cal  (java.util.GregorianCalendar. year (dec month) day)]
+      (.get cal java.util.GregorianCalendar/DAY_OF_WEEK)
+      )))
+
+(defn get-TS-dayOffset
+  "Get the sql-timestamp at a certain dayOffset of 'dt'. A dayOffset of -7 corresponds to last week."
+  [dt dayOffset]
+  (let [offset (* dayOffset Interval1dayMillis)
+        millis (.getTime dt)
+        newMillis (+ millis offset)]
+    (java.sql.Timestamp. newMillis)))
+
+(defn get-TS-minuteOffset
+  "Get the sql-timestamp at a certain minuteOffset of 'dt'. A dayOffset of -1 corresponds to 1 minute earlier.
+   Can operate on time-stamps and on java.util.Date. (java.sql.Date does not have sufficient precision)"
+  [dt minuteOffset]
+  (let [offset (* minuteOffset Interval1minuteMillis)
+        millis (.getTime dt)
+        newMillis (+ millis offset)]
+    (java.sql.Timestamp. newMillis)))
+
+
+(def zoneOffsetMillis (let [cal (java.util.Calendar/getInstance)
+                            dst (.get cal java.util.Calendar/DST_OFFSET)
+                            zone (.get cal java.util.Calendar/ZONE_OFFSET)]
+                        (+ zone dst)))
+
+(defn get-TS-midDay
+  "Get an approximate timestamp at the middle of the Day. 
+   Warning. A timezone correction is used to compensate for the offset relative to UTC.
+   Therefore I add 10 hours to midnight (computation works for Europe, did not test wrap-around in Asia)."
+  [dt]
+  (let [ts (convert-to-timestamp dt)
+        hrsOffs (- 12 (.getHours ts))
+        mnsOffs (- 0 (.getMinutes ts))
+        secOffs (- 0 (.getSeconds ts))
+                
+        offset  (* 1000 
+                  (+ secOffs
+                    (* 60
+                      (+ mnsOffs
+                        (*  60 hrsOffs)))))
+        ;;_ (println "hrsOffs=" hrsOffs "   mnsOffs= " mnsOffs " secOffs=" secOffs "  total offset= " offset)
+        newMillis (+ (.getTime ts) offset)]
+    (java.sql.Timestamp. newMillis)))
+
+(defn get-TS-endDay
+  "Get an approximate timestamp at the middle of the Day. Warning. Assuming we are at GMT +2 hours.
+   Therefore I add 10 hours to midnight (computation works for Europe, did not test wrap-around in Asia)."
+  [dt]
+  (let [ts (convert-to-timestamp dt)
+        hrsOffs (- 23 (.getHours ts))
+        mnsOffs (- 59 (.getMinutes ts))
+        secOffs (- 59 (.getSeconds ts))
+                
+        offset  (* 1000 
+                  (+ secOffs
+                    (* 60
+                      (+ mnsOffs
+                        (*  60 hrsOffs)))))
+        ;;_ (println "hrsOffs=" hrsOffs "   mnsOffs= " mnsOffs " secOffs=" secOffs "  total offset= " offset)
+        newMillis (+ (.getTime ts) offset)]
+    (java.sql.Timestamp. newMillis)))
+
+
+(defn get-date-dayOffset
+  "Get the sql-timestamp at a certain dayOffset of 'dt'. A dayOffset of -7 corresponds to last week.
+   The offste is a whole day, so the time-of-day does not change."
+  [dt dayOffset]
+  (let [offset (* dayOffset Interval1dayMillis)
+        millis (.getTime dt)
+        newMillis (+ millis offset)]
+    (java.sql.Date. newMillis)))
 
 
