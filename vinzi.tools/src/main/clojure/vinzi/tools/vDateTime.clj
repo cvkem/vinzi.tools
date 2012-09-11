@@ -70,6 +70,7 @@
 
 (def Interval1weekMillis  (long (- (get-time-millis 2012 1 8) (get-time-millis 2012 1 1))))
 (def Interval1dayMillis  (long (- (get-time-millis 2012 1 2) (get-time-millis 2012 1 1))))
+(def Interval1minuteMillis  (long (/ Interval1dayMillis (* 24 60))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -143,6 +144,15 @@
         newMillis (+ millis offset)]
     (java.sql.Timestamp. newMillis)))
 
+(defn get-TS-minuteOffset
+  "Get the sql-timestamp at a certain minuteOffset of 'dt'. A dayOffset of -1 corresponds to 1 minute earlier.
+   Can operate on time-stamps and on java.util.Date. (java.sql.Date does not have sufficient precision)"
+  [dt minuteOffset]
+  (let [offset (* minuteOffset Interval1minuteMillis)
+        millis (.getTime dt)
+        newMillis (+ millis offset)]
+    (java.sql.Timestamp. newMillis)))
+
 
 (defn get-date-dayOffset
   "Get the sql-timestamp at a certain dayOffset of 'dt'. A dayOffset of -7 corresponds to last week."
@@ -167,7 +177,8 @@
      ))
 )
 
-(defn convert-to-date "Convert a date-like object or date-formated string to a java.sql.Date "
+(defn convert-to-date 
+  "Convert a date-like object or date-formated string to a java.sql.Date "
   [x] 
   (let [tp (type x)]
     (if (= tp java.sql.Date)
