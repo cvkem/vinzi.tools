@@ -52,7 +52,7 @@
   ))
 
 
-(deftest mid-end-day-test
+(deftest start-mid-end-day-test
   (let [start (vDate/make-sql-date 2012 9 10)
         start2 (vDate/make-sql-date 2012 9 10 0 0 0)
         early (vDate/make-sql-date 2012 9 10 0 30 0)
@@ -78,7 +78,47 @@
          mid
          late
          end)
+    ;; day should stay unchanged
+    (are [dt] (= 10 (:day (vDate/get-ymd-date (vDate/convert-to-date (vDate/get-TS-startDay dt)))))
+         start
+         start2
+         early 
+         mid
+         late
+         end)
     
     ))
 
+
+(deftest comparator-test
+  (let [start (vDate/make-sql-date 2012 9 10)
+        start2 (vDate/make-sql-date 2012 9 10 0 0 0)
+        early (vDate/make-sql-date 2012 9 10 0 30 0)
+        mid   (vDate/make-sql-date 2012 9 10 12 0 0)
+        late (vDate/make-sql-date 2012 9 10 23 30 0)
+        end  (vDate/make-sql-date 2012 9 10 23 59 59)
+        
+        startComp (vDate/gen-date-comparator>=startDay mid)
+        midComp   (vDate/gen-date-comparator<= mid)
+        endComp   (vDate/gen-date-comparator<= end)
+        ]
+    (are [dt res] (= (startComp dt) res)
+         start true
+         early true
+         mid   true
+         late  true
+         end   true)
+    (are [dt res] (= (midComp dt) res)
+         start true
+         early true
+         mid   true
+         late  false
+         end   false)
+    (are [dt res] (= (endComp dt) res)
+         start true
+         early true
+         mid   true
+         late  true
+         end   true)
+))
 

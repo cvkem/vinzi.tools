@@ -236,6 +236,7 @@
         newMillis (+ (.getTime ts) offset)]
     (java.sql.Timestamp. newMillis)))
 
+
 (defn get-TS-endDay
   "Get an approximate timestamp at the middle of the Day. Warning. Assuming we are at GMT +2 hours.
    Therefore I add 10 hours to midnight (computation works for Europe, did not test wrap-around in Asia)."
@@ -244,6 +245,24 @@
         hrsOffs (- 23 (.getHours ts))
         mnsOffs (- 59 (.getMinutes ts))
         secOffs (- 59 (.getSeconds ts))
+                
+        offset  (* 1000 
+                  (+ secOffs
+                    (* 60
+                      (+ mnsOffs
+                        (*  60 hrsOffs)))))
+        ;;_ (println "hrsOffs=" hrsOffs "   mnsOffs= " mnsOffs " secOffs=" secOffs "  total offset= " offset)
+        newMillis (+ (.getTime ts) offset)]
+    (java.sql.Timestamp. newMillis)))
+
+(defn get-TS-startDay
+  "Get an approximate timestamp at the middle of the Day. Warning. Assuming we are at GMT +2 hours.
+   Therefore I add 10 hours to midnight (computation works for Europe, did not test wrap-around in Asia)."
+  [dt]
+  (let [ts (convert-to-timestamp dt)
+        hrsOffs (- 0 (.getHours ts))
+        mnsOffs (- 0 (.getMinutes ts))
+        secOffs (- 0 (.getSeconds ts))
                 
         offset  (* 1000 
                   (+ secOffs
@@ -264,4 +283,47 @@
         newMillis (+ millis offset)]
     (java.sql.Date. newMillis)))
 
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; functions that return a dateTime comparator
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn gen-date-comparator>= 
+  "Return a closure (fn [date ...) that checks whether 'date' >= bound."
+  [bound]
+  (let [bound (if (number? bound)
+                (long bound)
+                (.getTime bound))]
+  (fn [date]
+    (>= (.getTime date) bound))))
+
+
+
+
+(defn gen-date-comparator<=
+  "Return a closure (fn [date ...) that checks whether 'date' <= bound."
+  [bound]
+  (let [bound (if (number? bound)
+                (long bound)
+                (.getTime bound))]
+  (fn [date]
+    (<= (.getTime date) bound))))
+
+
+(defn gen-date-comparator<=endDay
+  "Return a closure (fn [date ...) that checks whether 'date' <= end-of-day of the data represented by date. 
+   Note, even java.sql.Date, which only prints to full days will carry time-information along, 
+which might result in unexpected comparisons."
+  [bound]
+    (gen-date-comparator<= (get-TS-endDay bound)))
+
+
+
+(defn gen-date-comparator>=startDay
+  "Return a closure (fn [date ...) that checks whether 'date' <= end-of-day of the data represented by date. 
+   Note, even java.sql.Date, which only prints to full days will carry time-information along, 
+which might result in unexpected comparisons."
+  [bound]
+    (gen-date-comparator>= (get-TS-startDay bound)))
 
