@@ -89,36 +89,58 @@
     
     ))
 
-
+(comment 
 (deftest comparator-test
-  (let [start (vDate/make-sql-date 2012 9 10)
+  (let [yesterday (vDate/make-sql-date 2012 9 9 23 59 59)
+        start (vDate/make-sql-date 2012 9 10)
         start2 (vDate/make-sql-date 2012 9 10 0 0 0)
         early (vDate/make-sql-date 2012 9 10 0 30 0)
         mid   (vDate/make-sql-date 2012 9 10 12 0 0)
         late (vDate/make-sql-date 2012 9 10 23 30 0)
         end  (vDate/make-sql-date 2012 9 10 23 59 59)
+        tomorrow (vDate/make-sql-date 2012 9 11)
+        tomorrow2 (vDate/make-sql-date 2012 9 11 0 0 0)
         
         startComp (vDate/gen-date-comparator>=startDay mid)
         midComp   (vDate/gen-date-comparator<= mid)
         endComp   (vDate/gen-date-comparator<= end)
+        sameComp   (vDate/gen-date-comparator-sameDay end)
         ]
     (are [dt res] (= (startComp dt) res)
+         yesterday false
          start true
          early true
          mid   true
          late  true
-         end   true)
+         end   true
+         tomorrow true
+         tomorrow2 true)
     (are [dt res] (= (midComp dt) res)
+         yesterday true
          start true
          early true
          mid   true
          late  false
-         end   false)
+         end   false
+         tomorrow false
+         tomorrow2 false)
     (are [dt res] (= (endComp dt) res)
+         yesterday true
          start true
          early true
          mid   true
          late  true
-         end   true)
+         end   true
+         tomorrow false
+         tomorrow2 false)
+    (are [dt res] (= (sameComp dt) res)
+         yesterday false
+         start true
+         early true
+         mid   true
+         late  true
+         end   true
+         tomorrow false
+         tomorrow2 false)
 ))
-
+)

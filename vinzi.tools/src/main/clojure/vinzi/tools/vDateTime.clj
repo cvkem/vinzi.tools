@@ -310,20 +310,34 @@
   (fn [date]
     (<= (.getTime date) bound))))
 
+(defn gen-date-comparator-range
+  "Return a closure (fn [date ...) that checks whether lower <= 'date' <= upper."
+  [lower upper]
+  (let [lower (gen-date-comparator>= lower)
+        upper (gen-date-comparator<= upper)]
+    (fn [date]
+      (and (lower date) (upper date)))))
+
 
 (defn gen-date-comparator<=endDay
   "Return a closure (fn [date ...) that checks whether 'date' <= end-of-day of the data represented by date. 
    Note, even java.sql.Date, which only prints to full days will carry time-information along, 
-which might result in unexpected comparisons."
+   which might result in unexpected comparisons."
   [bound]
     (gen-date-comparator<= (get-TS-endDay bound)))
 
 
 
 (defn gen-date-comparator>=startDay
-  "Return a closure (fn [date ...) that checks whether 'date' <= end-of-day of the data represented by date. 
+  "Return a closure (fn [date ...) that checks whether 'date' >= start-of-day of the data represented by date. 
    Note, even java.sql.Date, which only prints to full days will carry time-information along, 
-which might result in unexpected comparisons."
+   which might result in unexpected comparisons."
   [bound]
     (gen-date-comparator>= (get-TS-startDay bound)))
 
+(defn gen-date-comparator-sameDay 
+  "Return a closure (fn [date ...) that checks whether start-of-day <= 'date' <= end-of-day of the data represented by date. 
+   Note, even java.sql.Date, which only prints to full days will carry time-information along, 
+  which might result in unexpected comparisons."
+  [day]
+  (gen-date-comparator-range (get-TS-startDay day) (get-TS-endDay day)))
