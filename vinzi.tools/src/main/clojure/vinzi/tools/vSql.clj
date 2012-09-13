@@ -245,7 +245,9 @@
 (defn get-select-field-str 
   "Return fieldsnames selected by 'sel' as quotes strings followed interposed by commas(for usage in a select statement)."
   ;; TODO: We should add an optional prefix to disambiguate when concatenated with other fields (Needed by vinzi.eis.cvrm.core)
-  [flds sel]
+  ([flds sel]
+    (get-select-field-str flds sel nil))
+  ([flds sel  prefix]
   (let [lpf "(get-select-field-str): "
         fldNames (map #(nth flds %) sel)
         _ (trace lpf "selected fldNames: " fldNames)
@@ -259,8 +261,13 @@
                                   head))))]                     ;; different from get-create-field-str
                    (map quote-first fldNames))
            _ (trace "after quoting fldNames: " fldNames)
-           fldNames  (interpose ", " fldNames)]
-       (apply str fldNames)))
+           ;; add prefix when specified.
+           fldNames (if (string? prefix)
+                     (map #(str prefix "." %) fldNames)
+                     fldNames)
+;;           fldNames  (interpose ", " fldNames)
+           ]
+       (str/join ", " fldNames))))
 
 
 
