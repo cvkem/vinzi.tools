@@ -603,3 +603,34 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
   [cmd]
   `(sql/with-connection defaultDb ~cmd)) 
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  An SQL sort-order DIFFERS from the java-compare sort order on special characters/
+;;  The function below creates a tables with 200 one-character strings and shows the
+;;  clojure_sort_order (equal to the byte-value of the character) and 
+;;  the sql_sort_order.
+
+(comment
+  
+  (defn fill-order-test2 [n]
+    (let [chars (for [x (range 1 n)] {:nr x :s (str (char x))})
+          chars (sort-by :s chars)
+          chars (map #(assoc %1 :clojure_sort_order %2) chars (range 1 n))]
+    (apply sql/insert-records "order_test" chars)))
+  
+(defn test-order []
+  (let [N 200]
+  (sql/with-connection vSql/defaultDb
+      (sql/do-commands "DROP TABLE IF EXISTS order_test;")  
+      (sql/do-commands "CREATE TABLE order_test (nr INTEGER, s VARCHAR, clojure_sort_order INTEGER, sql_sort_order INTEGER);")
+      (fill-order-test2 N)
+  
+      (sql/with-query-results res ["SELECT * FROM order_test ORDER BY s"]
+            (let [res (map #(assoc %1 :sql_sort_order %2) res (range 1 N))]
+              (doseq [r res]
+                (println r)
+                (sql/do-commands (str "UPDATE order_test SET sql_sort_order=" (:sql_sort_order r)
+                                      " WHERE s='" (let [c (:s r)] (if (= c "'") "''" c)) "'")))))
+      )))
+
+ )  ;; end order test
