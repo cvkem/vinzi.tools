@@ -2,10 +2,9 @@
   (:use	[clojure [pprint :only [pprint pp]]]
         [clojure [stacktrace :only [print-stack-trace root-cause]]]
         [clojure.tools [logging :only [error info trace debug warn]]])
-  (:require [clojure
-             [string :as str]]
-            [clojure.java
-             [jdbc :as sql]]))
+  (:require [clojure.string :as str]
+            [clojure.java.jdbc :as sql]
+            [vinzi.tools.vExcept :as vExcept]))
 
 
 
@@ -26,18 +25,19 @@
   "Print report for an SQL exception
    (including one step higher in the exception-chain."
   [location e]
-  (error (with-out-str
-           (println "Exception of type: " (class e))
-           (print-stack-trace (root-cause e))
-           (println "Exception caught at location " location)
-           (println "Message: " (.getMessage e))
-           (when (isa? (class e) java.sql.SQLException)
-             (println "SQL-related Exception details:")
-             (println "ErrorCode: " (.getErrorCode e))
-             (println "SQLState:  " (.getSQLState e))
-             (when-let [n (.getNextException e)]
-               (println "Next-message: " (.getMessage n))
-               (println "Next-errorcode: " (.getErrorCode n)))))))
+  (vExcept/report location e))  
+;  (error (with-out-str
+;           (println "Exception of type: " (class e))
+;           (print-stack-trace (root-cause e))
+;           (println "Exception caught at location " location)
+;           (println "Message: " (.getMessage e))
+;           (when (isa? (class e) java.sql.SQLException)
+;             (println "SQL-related Exception details:")
+;             (println "ErrorCode: " (.getErrorCode e))
+;             (println "SQLState:  " (.getSQLState e))
+;             (when-let [n (.getNextException e)]
+;               (println "Next-message: " (.getMessage n))
+;               (println "Next-errorcode: " (.getErrorCode n)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;   functions to produce (double-)quoted strings for Postgres.
