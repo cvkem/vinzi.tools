@@ -26,10 +26,26 @@
             (compare-maps
             ;; compare two maps on their 'cmpFlds' only (returns boolean)
             [rec1 rec2]
-            (compare-fields rec1 (get-fields rec2)))]
+            (compare-fields rec1 (get-fields rec2)))
+            (map-comparator 
+              [rec1 rec2]
+              (loop [rv1 (get-fields rec1)
+                    rv2 (get-fields rec2)]
+                (if (and (seq rv1) (seq rv2))
+                  (let [cmp (compare (first rv1) (first rv2))]
+                        (if (not= cmp 0)
+                          cmp
+                          (recur (rest rv1) (rest rv2))))
+                  (if (or (seq rv1) (seq rv2))
+                    (if (seq rv1)
+                      1      ;; seq r1 is longer
+                      -1)    ;;seq r2 is longer
+                    0))))   ;; same size and equal
+                    ]
          {:get-fields     get-fields
           :compare-fields compare-fields
-          :compare-maps   compare-maps} ))
+          :compare-maps   compare-maps
+          :map-comparator map-comparator} ))
 
 
 (defn compare-map-arrays 

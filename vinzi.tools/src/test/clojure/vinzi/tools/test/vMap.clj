@@ -60,6 +60,22 @@
       )))
 
 
+(deftest mapComparator-tests
+  (let [r1 {:a 1 :b 2}
+        r2 {:a 2 :b 2}
+        r3 {:a 1 :b 1}
+        cmpFlds '(:a :b)
+        sign (fn [x] (if (> x 0) 1 (if (< x 0) -1 0)))
+        mcmp (vMap/get-map-comparator cmpFlds)
+        {:keys [map-comparator]} mcmp]
+    (are [x y res] (= (sign (map-comparator x y)) res)
+         r1 r1  0
+         r1 r2  -1
+         r1 r3  1
+         r2 r3  1
+         )))
+
+
 (deftest test-map-str-convertor
   (println "testing the get-map-str-convertor")
   (are [tp val res]

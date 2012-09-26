@@ -91,15 +91,15 @@
                    parts
                    (if (= cnt 2)
                      (let [times (str/split (second lParts) #":")
-                           _ (println "last times" (last times))
+ ;;                          _ (println "last times" (last times))
                            sec   (first (str/split (last times) #"\."))] ;; discard ms
-                       (println "sec="sec)
+;;                       (println "sec="sec)
                        (concat (drop-last parts) (list (first lParts)) (take 2 times) (list sec)))
                      (throw (Exception. (str "(str-to-sql-date): "
                                   "Can not translate time-part of of string " s)))))]
           ;; assume parts contains year month day in sequence (3 elements)
           ;;   or year month day hour minute second (6 elements)
-          (println (str/join ";" parts))
+;;          (println (str/join ";" parts))
           (apply make-sql-date (map #(Integer/parseInt %) parts))))) 
 	
 
