@@ -83,8 +83,10 @@
 
 (defn str-to-sql-date 
   "Parse a string and turn is in an sql-date." [s]
-  (let [parts (str/split s #"-")]
-    (assert (= (count parts) 3))
+  (let [parts (str/split s #"[-/]")]
+    (when (not= (count parts) 3)
+      (throw (Exception. (str "(str-to-sql-date): Expected three parts when splitting "
+                              " input-string: '" s "' at dashes (-)."))))
     (let [lParts (str/split (last parts) #" ")
           cnt (count lParts)
           parts  (if (= cnt 1)
