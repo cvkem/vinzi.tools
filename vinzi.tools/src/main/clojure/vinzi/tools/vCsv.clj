@@ -12,19 +12,27 @@
              [vSql :as vSql]]
             ))
 
+;; function use to map the headerline to the keywords.
+;(def ^:dynamic KeyWordFunc (fn [x] (-> x (str/trim) (keyword))))
+;
+;(defn set-KeyWordFunc [kwf]
+;  (def KeyWordFunc kwf))
+
 (defn csv-to-map "Takes a csv-dataset (sequence of vectors) 
  and translates it to a (lazy) sequence of maps, using the first row as map-keys.
  Surrounding spaces are trimmed, and all values are returned as strings."
-  [csv]
-  (let [lpf "(csv-to-map): "
-        header (->> (first csv)
-                 (map str/trim)  ;; do not allow surrounding spaces on keyword
-                 (map keyword))
-        _ (debug lpf "with headers: " (str/join ", " header))
-        data   (next csv)
-        to-map (fn [row]
-                 (into {} (map #(vector %1 (str/trim %2)) header row)))]
-    (map to-map data)))
+  ([csv] (csv-to-map csv false))
+  ([csv lowCaseKey]
+    (let [lpf "(csv-to-map): "
+          header (->> (first csv)
+                     (map str/trim)
+                     (map #(if lowCaseKey (str/lower-case %) %))
+                     (map keyword))
+          _ (debug lpf "with headers: " (str/join ", " header))
+          data   (next csv)
+          to-map (fn [row]
+                   (into {} (map #(vector %1 (str/trim %2)) header row)))]
+      (map to-map data))))
 
 
 ;; this is a cdp-specific function. cdp provides the extend-path stuff, but this is wider applicable
@@ -67,6 +75,8 @@
   [params processFunc]
   (let [lpf (str "(read-csv " params ")")
         ;; translate the two csv-opts from string to character (if needed)
+        lowCaseKey  (:lowCaseKey params)
+        params     (dissoc params :lowCaseKey)
         make-char (fn [p k]
                      (if-let [v (k p)]
                        (if (string? v)
@@ -80,7 +90,7 @@
         (with-open [f (io/reader csvFile)]
           (let [csvData (apply csv/read-csv f csvOpts)
                 _ (trace lpf "csvData = " (apply str csvData))
-                csvMap  (csv-to-map csvData)]
+                csvMap  (csv-to-map csvData lowCaseKey)]
             (trace lpf "csvMap = " (with-out-str (pprint (first csvMap))))
             ;; csvMap is lazy but terminates when the scope of this (with-open is closed.
             ;;    (a template for a lazy-open that keeps a file open is given below)
