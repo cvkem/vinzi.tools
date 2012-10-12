@@ -28,14 +28,15 @@
   "Construct an exception with all msg-items concatenated and throw it on the spot (macro) 
    If the last item of msgCause is a throwable it will be assumed to be a cause."
   [& msgCause]
-    (let [msg (apply str (if (isa? (last msgCause) java.lang.Throwable)
+  ;; TODO: remove the apply st or let it be evaluated at run-time to expand arguments correctly
+    (let [msg (if (isa? (last msgCause) java.lang.Throwable)
                            (drop-last msgCause)
-                           msgCause))
+                           msgCause)
           cause (when (isa? (last msgCause) java.lang.Throwable)
                   (last msgCause))]
       (if cause
-        `(throw (Exception. ~msg ~cause))    
-        `(throw (Exception. ~msg)))))
+        `(throw (Exception. (str ~@msg) ~cause))    
+        `(throw (Exception. (str ~@msg))))))
 
 
 (defn report 
