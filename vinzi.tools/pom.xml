@@ -52,6 +52,12 @@
 			<version>1.0.6</version>
 			<scope>provided</scope>
 		</dependency>
+				<dependency>
+			<groupId>org.clojure</groupId>
+			<artifactId>data.csv</artifactId>
+			<version>0.1.2</version>
+			<scope>provided</scope>
+		</dependency>
 	</dependencies>
 	<build>
 		<plugins>

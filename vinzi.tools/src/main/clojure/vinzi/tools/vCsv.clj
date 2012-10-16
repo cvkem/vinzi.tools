@@ -1,7 +1,7 @@
 (ns vinzi.tools.vCsv
   (:use [clojure [pprint :only [pprint pp]]]
         [clojure.tools [logging :only [error info trace debug warn]]]
-        [vinzi.tools.vSql :only [qs qsp]])
+        [vinzi.tools.vSql :only [qs qsp sqs]])
   (:require [clojure.data.csv :as csv]
             [clojure.java.io :as io]
             [clojure.java.jdbc :as sql]
@@ -9,7 +9,8 @@
             [vinzi.tools
              [vFile :as vFile]
              [vMap :as vMap]
-             [vSql :as vSql]]
+             [vSql :as vSql]
+             [vExcept :as vExcept]]
             ))
 
 ;; function use to map the headerline to the keywords.
@@ -25,6 +26,7 @@
   ([csv lowCaseKey]
     (let [lpf "(csv-to-map): "
           header (->> (first csv)
+                     (map name)
                      (map str/trim)
                      (map #(if lowCaseKey (str/lower-case %) %))
                      (map keyword))
@@ -67,31 +69,73 @@
         ;; (a template for a lazy-open is given below)
         (doall csvMap)))))
 
-
+(defn csv-columnMap
+  "Apply a column-mapping as defined by 'columnMap' to the dataset. If 'keepAll' is set to false, then
+   the columns that do not exist will be dropped from the dataset. 'KeywordizeKeys' turns the keys to 
+   keyword (default is using strings)."
+  ([data columnMap] (csv-columnMap data columnMap true false))
+;;  option with three parameters NOT included to prevent errors on ordering of the boolean flags.
+;;  (specify both or none).  
+  ([data columnMap keepAll keywordizeKey]
+    (let [lpf "(csv-columnMap): "]
+      (if columnMap
+        (if (map? columnMap)
+          (let [cols (->> (first data)
+                       (map #(if-let [newName (or (columnMap %) (columnMap (keyword %)))]
+                               newName
+                               (when keepAll
+                                 %)))
+                       (map #(when % (name %))))
+                colNrs (->> cols
+                         (map #(list %1 %2) (range))
+                         (remove #(nil? (second %)))
+                       (map first))
+                ;;colLabels (vec (remove nil? cols))
+                colLabels (->> cols
+                            (remove nil?)
+                            (map #(if keywordizeKey (keyword %) %))
+                            (vec))
+                newData (map (fn [row] (vec (map #(get row %) colNrs))) (rest data))]
+            (debug lpf "colLabels: " colLabels " taken from columns: " (str/join "," colNrs))
+            (concat (list colLabels) newData))
+          (vExcept/throw-except "columnMap should be map. Received value of type: " (type columnMap)))
+        data))))
 
 ;; actually this is a cdp specific use of params
 (defn read-csv-lazy 
-  "Lazy read csv based on params-map. Required key is :csvFile. Allowed keys are :quote and :separator."
+  "Lazy read csv based on params-map. Required key is :csvFile. Allowed keys are :quote :separator :lowCaseKey :columnMap and :keepAllColumns."
   [params processFunc]
   (let [lpf (str "(read-csv " params ")")
-        ;; translate the two csv-opts from string to character (if needed)
-        lowCaseKey  (:lowCaseKey params)
-        params     (dissoc params :lowCaseKey)
+        _ (debug lpf "with params: " (with-out-str (pprint params)))
+        {:keys [lowCaseKey columnMap keywordizeKeys]}  params
+        keepAllColumns (if (some #{:keepAllColumns} (keys params))
+                         (:keepAllColumns params)
+                         true)   ;; if key does not exist default to true
+        params     (dissoc params :lowCaseKey :columnMap :keepAllColumns :keywordizeKeys)
         make-char (fn [p k]
                      (if-let [v (k p)]
                        (if (string? v)
                          (assoc p k (first v))
                          p)
                        p))
+        ;; translate the two csv-opts from string to character (if needed)
         params (reduce make-char params '(:quote :separator))]
     (if-let [csvFile (:csvFile params)]
       (let [csvOpts (apply concat (remove #(nil? (second %)) (map #(vector % (% params)) [:quote :separator])))
             csvFile (extend-csv-path csvFile)]
         (with-open [f (io/reader csvFile)]
-          (let [csvData (apply csv/read-csv f csvOpts)
-                _ (trace lpf "csvData = " (apply str csvData))
-                csvMap  (csv-to-map csvData lowCaseKey)]
-            (trace lpf "csvMap = " (with-out-str (pprint (first csvMap))))
+;          (let [csvData (apply csv/read-csv f csvOpts)
+;                _ (trace lpf "csvData = " (apply str csvData))
+;                csvMap  (csv-to-map csvData lowCaseKey)]
+          (let [showFirstThree (fn [recs msg] 
+                                 (debug msg "(first 3): " (with-out-str (pprint (take 3 recs)))) 
+                                 recs)
+                csvMap (-> (apply csv/read-csv f csvOpts)
+                         (showFirstThree "read-csv")
+                         (csv-columnMap columnMap keepAllColumns keywordizeKeys)
+                         (showFirstThree "csv-columnMap")
+                         (csv-to-map lowCaseKey)
+                         (showFirstThree "csv-to-map"))]
             ;; csvMap is lazy but terminates when the scope of this (with-open is closed.
             ;;    (a template for a lazy-open that keeps a file open is given below)
             ;; Sept 2012, added a doall to enforce realization (lazyness should be within processfunc
@@ -108,56 +152,81 @@
 (def non-lazy false)
 
 (defn read-csv-to-db 
-  "Read the data from a csv-file with (read-csv params) and append this data to table :targetTbl 
-   while matching the column-names as specified in the csv-file.
+  "Read the data from a csv-file with (read-csv params) and append this data to the existing table :targetTbl 
+   while matching the column-names as specified in the csv-file. 
+   Params is a map with required keys :csvFile :targetTbl and optional keys :schema :separator :quote :lowCaseKey :columnMap :keepAllColumns
    The targetTbl is assumed to be a correctly quoted and sufficiently specified table identifier.
    (Currently does not use naming strategy, so field-names should be in lower-case and should not require quoting.)"
   [params]
   {:pre [(map? params)]}
   ;; no unit-test included yet, as this requires setting up a database connection.
-    (let [lpf "(read-csv-to-db): "]
-    (if-let [targetTbl (:targetTbl params)]
-      (let [{:keys [schema table]} (if-let [schema (:schema params)]
-                                     {:schema schema :table targetTbl}
-                                     (if (= (first targetTbl) \")
-                                       (vSql/split-qualified-name targetTbl)
-                                       {:table targetTbl}))
-            targetTbl (if schema 
-                        (qsp schema table) 
-                        (qs table))
-            _ (debug lpf "Reading csvFile " (:csvFile params) 
-                     " to table " targetTbl 
-                     " with opts: " (dissoc params :schema :csvFile :targetTbl)) 
-            colInfo (let [schema (if schema schema "public")]
-                      (if-let [colInfo (seq (vSql/get-col-info schema table))]
-                        colInfo
-                        (let [msg (str "No column-information found for " schema "." table)]
-                          (error lpf msg)
-                          (throw (Exception. msg)))))
-            colInfo (zipmap (map #(keyword (:column_name %)) colInfo)
-                            (map :data_type colInfo))
-            _  (info lpf " The column-information is: " colInfo)
-            mapConv (vMap/get-map-str-convertor colInfo)
-            processFunc (fn [data]   ;; will be called within scope of read-csv-lazy
-                          (if (seq data)
-                            (let [firstRec (first data)
-                                  noTarget (some #(nil? (colInfo  %)) (keys firstRec))
-                                  noSrc    (filter #(nil? (% (set (keys firstRec)))) (keys colInfo)) 
-                                  msg (str/join "\n\t"
+    (let [lpf "(read-csv-to-db): "
+          params (assoc params :keywordizeKeys true)]
+      (if-let [targetTbl (:targetTbl params)]
+        (let [{:keys [schema table]} (if-let [schema (:schema params)]
+                                       {:schema schema :table targetTbl}
+                                       (if (= (first targetTbl) \")
+                                         (vSql/split-qualified-name targetTbl)
+                                         {:table targetTbl}))
+              targetTbl (if schema 
+                          (qsp schema table) 
+                          (qs table))
+              _ (debug lpf "Reading csvFile " (:csvFile params) 
+                       " to table " targetTbl 
+                       " with opts: " (dissoc params :schema :csvFile :targetTbl)) 
+              colInfo (let [schema (if schema schema "public")]
+                        (if-let [colInfo (seq (vSql/get-col-info schema table))]
+                          colInfo
+                          (let [msg (str "No column-information found for " schema "." table)]
+                            (error lpf msg)
+                            (throw (Exception. msg)))))
+              colInfo (zipmap (map #(keyword (:column_name %)) colInfo)
+                              (map :data_type colInfo))
+              _  (info lpf " The column-information is (TEMP): " colInfo)
+              mapConv (vMap/get-map-str-convertor colInfo)
+              processFunc (fn [data]   ;; will be called within scope of read-csv-lazy
+                            (if (seq data)
+                              (let [firstRec (first data)
+                                    noTarget (some #(nil? (colInfo  %)) (keys firstRec))
+                                    noSrc    (filter #(nil? (% (set (keys firstRec)))) (keys colInfo)) 
+                                    msg (str/join "\n\t"
                                          (map #(str (first %) "=" (second %) " \t--> " (colInfo  (first %))) firstRec))]
-                              (when (seq noSrc)
-                                (info lpf "\nSome field of the target table do not get a value (continue loading):\n\t"
-                                      (str/join "\n\t" noSrc)))
+                                (when (seq noSrc)
+                                  (info lpf "\nSome field of the target table do not get a value (continue loading):\n\t"
+                                        (str/join "\n\t" noSrc)))
                               (if noTarget
                                 (let [msg (str lpf "One or more fields can not be mapped to the database-table:\n\t" msg)]
                                   (error msg)
                                   (throw (Exception. msg)))
                                 (info lpf "Implied conversion on first record:\n\t" msg))
-                              (apply sql/insert-records targetTbl (map mapConv data)))
-                            (warn lpf "No data received.")))]
+                              (if (and (some #{:lowCaseKey} (keys params)) (not (:lowCaseKey params)))
+                                (do   ;; vSql/with-db-caps
+                                  (debug lpf "DB-handling in a case-sensitive way. First record: " (first data))
+                                  (let [cols    (keys (first data))
+                                        qryFmt (str "INSERT INTO " (qs targetTbl)
+                                                    " (" (str/join "," (map #(qs (name %)) cols)) ") "
+                                                    " VALUES (%s);")
+                                        showCnt (atom 0) ]
+                                    ;; TODO: investigated whether this could be prepared statement
+                                    ;; or we can get the naming strategy for uppercase working for insert-records
+                                    (debug lpf "format is: " qryFmt)
+                                    (doseq [d (map mapConv data)]
+                                      (let [values (->> cols
+                                                     (map #(% d))
+                                                     (map #(if (string? %) (sqs %) (str %)))
+                                                     (str/join ","))
+                                            qry (format qryFmt values)]
+                                        (when (<= @showCnt 10000)
+                                          (swap! showCnt inc)
+                                          (debug lpf "insert stmt " @showCnt ": " qry))
+                                        (sql/do-commands qry)))))
+                                (do
+                                  (debug lpf "DB-handling in with lower-case fieldnames. First record: " (first data))
+                                  (apply sql/insert-records targetTbl (map mapConv data)))))
+                              (warn lpf "No data received.")))]
+        (debug lpf "Reading csv-file with params: "  params)
         (if non-lazy
-          (let [_ (trace "starting reading the csv-file")
-                data (read-csv (dissoc params :targetTbl :schema))
+          (let [data (read-csv (dissoc params :targetTbl :schema))
                 _ (trace "starting to convert the data")
                 data (map mapConv data)]
             (apply sql/insert-records targetTbl data))
