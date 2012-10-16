@@ -74,9 +74,9 @@
 
 
 (defn get-map-str-convertor 
-  "Takes a map where values are the destination types and returns a function that when 
-   passes a map containing strings as values returns a new map with the strings converted to 
-   the types defined in type-map.
+  "Takes a map where values are the destination types and returns a function that 
+  takes a map containing strings as values returns a new map with the string-values 
+  converted to the types defined in type-map.
    (type-map should contains types as returned by sql (meta-data))." 
   [typeMap]
   {:pre [(map? typeMap)]}
