@@ -77,6 +77,15 @@
       (drop-last)
       ((partial str/join FileSep)))))
 
+(defn get-filename 
+  "Get the filename of a path (or a File object). "
+  [path]
+    (if (= (type path) java.io.File)
+      (.getName path)
+      (-> path
+        (str/split reFileSep)
+        (last))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; open a lazy sequence of files
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
