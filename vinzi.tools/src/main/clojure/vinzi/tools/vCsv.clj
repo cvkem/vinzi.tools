@@ -248,6 +248,13 @@
 ;;       (lazy-seq (read-line (clojure.java.io/reader file))))))
 
 
+(defn pprint-csv [params numLines]
+  (let [make-sorted (fn [m]
+                      (apply sorted-map (interleave (keys m) (vals m))))
+        process-lines (fn [recs]
+                        (doseq [r (take numLines recs)]
+                          (pprint (make-sorted r))))]
+  (read-csv-lazy params process-lines)))
 
 (comment ;; example
   (def x (with-open [f (io/reader "/tmp/test.csv")]
