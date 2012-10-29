@@ -8,84 +8,6 @@
 (def logTrace (atom []))
 
 
-(defmacro wrap-it [args]
-   (for [x args]
-     (if (or (and (= (type x) clojure.lang.PersistentList)
-                  (symbol? (first x)))
-             (= (type x) clojure.lang.Symbol))
-         (do 
-           (println  "Wrapped: " x)
-         `(fn [] ~x))
-         (do 
-           (println "NO wrap for: "x)
-         x))))
-
-;; function will force evaluation of it's argument, so a macro is needed
-(defn wrap-it-func [args]
-   (for [x args]
-     (if (or (and (= (type x) clojure.lang.PersistentList)
-                  (symbol? (first x)))
-             (= (type x) clojure.lang.Symbol))
-         (fn [] x)
-       x)))
-
-(defn show-it [x]
-  (if (and (= (type x) clojure.lang.PersistentList)
-           (symbol? (first x)))
-    (x)
-    x))
-
-;; example:
-;; 
-;=> (map show-it (wrap-it-func `("ABC" ~x)))
-;("ABC" {:a 1, :b 3})
-;=> (debug ("ABC" x))
-
-;(defmacro debug [& args]
-;  (println "received args: " args)
-;  (let [wargs (wrap-it args)]
-;     (println "PREPARED LOG_LINE: " wargs)
-;     `(swap! vinzi.tools.vLogging/logTrace (fn [~'lt] (conj ~'lt ~@wargs)))))
-
-;(defmacro debug [& args]
-;  (println "received args: " args)
-;     `(swap! vinzi.tools.vLogging/logTrace 
-;             (fn [~'lt] 
-;               (conj ~'lt 
-;                      ~@args
-;                    ;  ~(wrap-it args)
-;                      ))))
-
-
-;;; remark by Stuart Sierra on bug in Clojure
-;; In general, I think, you cannot rely on being able to eval function objects in Clojure, regardless of whether or not they are closures. 
-;;It happens to work for some simple examples, mostly to simplify the explanation of things like (eval (list + 1 2)). 
-;;Macros should always return literal source code as data structures, not compiled functions.
-;; Sniplet of: http://stackoverflow.com/questions/11191992/functions-with-closures-and-eval-in-clojure
-
-;(defmacro debug [& args]
-;  (println "received args: " args)
-;     `(swap! vinzi.tools.vLogging/logTrace 
-;             (fn [~'lt] 
-;               (conj ~'lt (vec (quote
-;                      ~(for [x# args]
-;                         (if (or (and (= (type x#) clojure.lang.PersistentList)
-;                                      (symbol? (first x#)))
-;                                 (symbol? x#))
-;                           (do 
-;                             (println  "Wrapped: " x#)
-;                             (fn [] x#))
-;                           (do 
-;                             (println "NO wrap for: " x#)
-;                             (eval x#)))))))        )))
-
-
-;; debug only pushing values
-;(defmacro debug [& args]
-;  (println "received args: " args)
-;     `(swap! vinzi.tools.vLogging/logTrace 
-;             (fn [~'lt] 
-;               (conj ~'lt (vector ~@args  )))))
 
 (defmacro wrap-item [x]
      (if (or (and (= (type x) clojure.lang.PersistentList)
@@ -103,21 +25,6 @@
     (with-out-str (x))
     (str x)))
 
-;(defn print-trace [msg]
-;  (let [lt @logTrace]
-;    (swap! logTrace (fn[_] []))
-;    (println "About to submit debug-line: ")
-;    (ctl/debug msg ": " (str/join " " (map show-it lt)))))
-
-
-; basic variant that stores values (and maps identity over it) (identity should be replaced of course)
-;(defmacro debug [& args]
-;  (println "received args: " args)
-;     `(swap! vinzi.tools.vLogging/logTrace 
-;             (fn [~'lt] 
-;               (conj ~'lt (vec (map identity (list ~@args))  )))))
-;; NOTE: in code above we can not replace identity by a function (as it evaluates arguments)
-;;  and we can not change it to a macro (macro's can not be passed a mapping function).
 
 
 (defmacro info "Wired directly to clojure.tools.logging/info"
