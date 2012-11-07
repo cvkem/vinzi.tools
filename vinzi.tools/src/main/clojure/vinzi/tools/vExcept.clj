@@ -38,6 +38,22 @@
         `(throw (Exception. (str ~@msg) ~cause))    
         `(throw (Exception. (str ~@msg))))))
 
+(defmacro report-throw-except
+  "Report the exception and subsequently throw it."
+  [& msgCause]
+  ;; TODO: remove the apply st or let it be evaluated at run-time to expand arguments correctly
+    (let [msg (if (isa? (last msgCause) java.lang.Throwable)
+                           (drop-last msgCause)
+                           msgCause)
+          cause (when (isa? (last msgCause) java.lang.Throwable)
+                  (last msgCause))]
+      (if cause
+        `(let [except# (Exception. (str ~@msg) ~cause)]
+           (vinzi.tools.vExcept/report except#)
+           (throw except#))
+        `(let [except# (Exception. (str ~@msg))]
+           (vinzi.tools.vExcept/report except#)
+           (throw except#)))))
 
 (defn report 
   "Print report for an exception, if this exception has not been reported already.    

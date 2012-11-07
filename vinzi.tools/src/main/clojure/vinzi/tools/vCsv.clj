@@ -101,9 +101,13 @@
           (vExcept/throw-except "columnMap should be map. Received value of type: " (type columnMap)))
         data))))
 
+
+
+
 ;; actually this is a cdp specific use of params
 (defn read-csv-lazy 
-  "Lazy read csv based on params-map. Required key is :csvFile. Allowed keys are :quote :separator :lowCaseKey :columnMap and :keepAllColumns."
+  "Lazy read csv based on params-map. Required key is :csvFile. Allowed keys are :quote :separator :lowCaseKey :columnMap and :keepAllColumns.
+   The processFunc is applied to the full-sequence of hash-maps that is produced (followed by doall, so it's not lazy."
   [params processFunc]
   (let [lpf (str "(read-csv " params ")")
         _ (debug lpf "with params: " (with-out-str (pprint params)))
@@ -143,7 +147,8 @@
       (throw (Exception. (str lpf "No parameter :csvFile found in call to read-csv"))))))
 
 (defn read-csv
-  "Non-lazy read csv based on params-map. Required key is :csvFile. Allowed keys are :quote and :separator."
+  "Non-lazy read csv based on params-map. Required key is :csvFile. Allowed keys are :quote and :separator.
+   (Returns a non-lazy sequence of hash-maps)."
   [params]
   {:pre [(map? params)]}
   (read-csv-lazy params doall))
