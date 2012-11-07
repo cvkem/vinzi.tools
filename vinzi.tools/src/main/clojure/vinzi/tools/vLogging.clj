@@ -10,7 +10,7 @@
 (def maxTraces 3)
 
 ;; when the logTrace exceeds 2*logTraceDepth levels it will be pruned to logTraceDepth
-(def logTraceDepth 3)
+(def logTraceDepth 1000)
 
 (def trackTraceCount (atom {}))
 
