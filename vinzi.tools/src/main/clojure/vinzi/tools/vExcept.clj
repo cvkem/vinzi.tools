@@ -58,23 +58,25 @@
 (defn report 
   "Print report for an exception, if this exception has not been reported already.    
    (including one step higher in the exception-chain)."
-  [msg e]
-  (let [msg (if (is-lastException? e)
-              msg
-              (with-out-str
-                      (println msg 
-                               "\nException of type: " (class e))
-                      (print-stack-trace (root-cause e))
-                      (println "Message: " (.getMessage e))
-                      (when (isa? (class e) java.sql.SQLException)
-                        (println "\tSQL-related Exception details:"
-                                 "\n\tErrorCode: " (.getErrorCode e)
-                                 "\n\tSQLState:  " (.getSQLState e))
-                        (when-let [n (.getNextException e)]
-                          (println "\nNext-message: " (.getMessage n)
-                                   "\n\tNext-errorcode: " (.getErrorCode n))))))]
-    (set-lastException e)
-    (error msg)))
+  ([e] (report "" e))
+  ([msg e]
+    (let [msg (if (is-lastException? e)
+                msg
+                (with-out-str
+                  (println msg 
+                           "\nException of type: " (class e))
+                  (print-stack-trace (root-cause e))
+                  (println "Message: " (.getMessage e))
+                  (when (isa? (class e) java.sql.SQLException)
+                    (println "\tSQL-related Exception details:"
+                             "\n\tErrorCode: " (.getErrorCode e)
+                             "\n\tSQLState:  " (.getSQLState e))
+                    (when-let [n (.getNextException e)]
+                      (println "\nNext-message: " (.getMessage n)
+                               "\n\tNext-errorcode: " (.getErrorCode n))))))]
+      (set-lastException e)
+      (when (seq msg)
+      (error msg)))))
 
 
 
