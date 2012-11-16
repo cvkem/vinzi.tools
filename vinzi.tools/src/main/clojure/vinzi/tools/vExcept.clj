@@ -62,18 +62,22 @@
   ([msg e]
     (let [msg (if (is-lastException? e)
                 msg
-                (with-out-str
-                  (println msg 
-                           "\nException of type: " (class e))
-                  (print-stack-trace (root-cause e))
-                  (println "Message: " (.getMessage e))
-                  (when (isa? (class e) java.sql.SQLException)
-                    (println "\tSQL-related Exception details:"
-                             "\n\tErrorCode: " (.getErrorCode e)
-                             "\n\tSQLState:  " (.getSQLState e))
-                    (when-let [n (.getNextException e)]
-                      (println "\nNext-message: " (.getMessage n)
-                               "\n\tNext-errorcode: " (.getErrorCode n))))))]
+                (if e
+                  (with-out-str
+                    (println msg 
+                             "\nException of type: " (class e))
+                    (if-let [rootCause (root-cause e)]
+                      (print-stack-trace rootCause)
+                      (println "No root-cause given"))
+                    (println "Message: " (.getMessage e))
+                    (when (isa? (class e) java.sql.SQLException)
+                      (println "\tSQL-related Exception details:"
+                               "\n\tErrorCode: " (.getErrorCode e)
+                               "\n\tSQLState:  " (.getSQLState e))
+                      (when-let [n (.getNextException e)]
+                        (println "\nNext-message: " (.getMessage n)
+                                 "\n\tNext-errorcode: " (.getErrorCode n)))))
+                  (str msg  "(Exception is nil)")))]
       (set-lastException e)
       (when (seq msg)
       (error msg)))))
