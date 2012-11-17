@@ -154,10 +154,15 @@
               outcome))))
 
 (defn table-length [schema table]
-  (let [qry (str "SELECT count(*) AS cnt FROM " (qsp schema table) ";")]
-    (sql/with-query-results res [qry]
-                            (assert (= (count res) 1))
-                            (:cnt (first res)))))
+  (let [lpf "(table-length): "]
+    (try
+      (let [qry (str "SELECT count(*) AS cnt FROM " (qsp schema table) ";")]
+        (sql/with-query-results res [qry]
+                                (assert (= (count res) 1))
+                                (:cnt (first res))))
+      (catch Exception e
+        (vExcept/report lpf e)
+        0))))
 
 
 
