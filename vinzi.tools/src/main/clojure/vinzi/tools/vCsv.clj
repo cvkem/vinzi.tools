@@ -58,7 +58,7 @@
  and translates it to a clojure map (returned sequence is not lazy)."
   [fName & opts]
   {:pre [(string? fName)]}
-  (let [lpf "(vinzi.cdp.tools.csv/read-csv-map): "
+  (let [lpf "(read-csv-map): "
         fName (extend-csv-path fName)]
     (with-open [f (io/reader fName)]
       (let [csvData (apply csv/read-csv f opts)
