@@ -101,7 +101,111 @@
  
 
 (comment 
-  ;; testcode
+
+;; typical time for a single subgroup  
+;  (def NUMPARSE 1000000)
+;; typical time for NO subgroup  
+; (time (def x (doall (map #(re-find #"\s+\d*" (str "   0234" %)) (range NUMPARSE)))))
+;"Elapsed time: 1059.111982 msecs"
+;; typical time for a single subgroup  
+;  => (time (def x (doall (map #(re-find #"\s+(\d*) " (str "   0234" %)) (range NUMPARSE)))))
+;"Elapsed time: 2075.392263 msecs"
+;#'user/x
+;;  So a regexp sub-group doubles the time needed
   
-  )
+  ;; testcode, to check influence on depth of strack-trail on timing of exception-handling
   
+  (def NUMPARSE 1000000)
+  
+  (defn pl-base 
+    "Base case to measure timing of an empyt loop (only generates list of integers."
+    [] 
+    (println "generate string. Num iter: " NUMPARSE) 
+    (time (def x (doall (map #(try 
+                                 (str %)
+                                (catch Exception e)  ;; catch exception and ignore it
+                                )(range NUMPARSE))))))
+  (defn pl 
+    "Base case to measure timing of parsing a series of strings (only generates list of integers)."
+    [] 
+    (println "parse-long. Num iter: " NUMPARSE) 
+    (time (def x (doall (map #(try 
+                                (Long/parseLong (str %))
+                                (catch Exception e)  ;; catch exception and ignore it
+                                )(range NUMPARSE))))))
+  
+  (defn ple 
+    "Code throws an arity exception."
+    [] 
+    (println "parse-long EXCEPTION. Num iter: " NUMPARSE) 
+    (time (def x (doall (map #(try 
+                                (Long/parseLong str %)
+                                (catch Exception e)  ;; catch exception and ignore it
+                                )(range NUMPARSE))))))
+  
+ (defn exec-at-level 
+   "Build a call-stack of depth 'level' levels, and execute function 'f' at this level."
+   [level f]
+  (if (= level 0)
+    (f)
+    (exec-at-level (dec level) f))) 
+ 
+(defn test-ple 
+  "Run functions pl and ple at different depths of the calling stack to measure time needed for generating an exception"
+  [maxLevel]
+  (println "Run functions pl and ple at different depths of the calling stack to measure time needed for generating an exception")
+  (loop [level 1]
+  (when (<= level maxLevel)
+    (do
+      (println "\nlevel=" level)
+      (exec-at-level level pl-base)
+      (exec-at-level level pl)
+      (exec-at-level level ple)
+      (recur (* level 10)))))
+  (println "TEST FINISHED"))
+
+(test-ple 1000)
+ 
+;;  CONCLUSION: 
+;;     1. Exception-handling does not take too much time (5 times less than a Integer/parseInt)
+;;     2. Call stack depth does not have an influence on the timing
+;;
+;;;  OUTPUT: 
+;=> (test-ple 1000)
+;Run functions pl and ple at different depths of the calling stack to measure time needed for generating an exception
+;
+;level= 1
+;generate string. Num iter:  1000000
+;"Elapsed time: 199.335669 msecs"
+;parse-long. Num iter:  1000000
+;"Elapsed time: 293.405727 msecs"
+;parse-long EXCEPTION. Num iter:  1000000
+;"Elapsed time: 126.070213 msecs"
+;
+;level= 10
+;generate string. Num iter:  1000000
+;"Elapsed time: 198.469079 msecs"
+;parse-long. Num iter:  1000000
+;"Elapsed time: 278.709166 msecs"
+;parse-long EXCEPTION. Num iter:  1000000
+;"Elapsed time: 109.066096 msecs"
+;
+;level= 100
+;generate string. Num iter:  1000000
+;"Elapsed time: 162.361697 msecs"
+;parse-long. Num iter:  1000000
+;"Elapsed time: 583.499299 msecs"
+;parse-long EXCEPTION. Num iter:  1000000
+;"Elapsed time: 96.351911 msecs"
+;
+;level= 1000
+;generate string. Num iter:  1000000
+;"Elapsed time: 174.5923 msecs"
+;parse-long. Num iter:  1000000
+;"Elapsed time: 581.710806 msecs"
+;parse-long EXCEPTION. Num iter:  1000000
+;"Elapsed time: 101.065358 msecs"
+;TEST FINISHED
+
+ )  ;; end comment
+

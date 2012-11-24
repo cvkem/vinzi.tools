@@ -14,21 +14,24 @@
 
 (def trackTraceCount (atom {}))
 
-(defmacro wrap-item [x]
-     (if (or (and (= (type x) clojure.lang.PersistentList)
-                  (symbol? (first x)))
-             (= (type x) clojure.lang.Symbol))
-         (do 
-           (println  "Wrapped: " x)
-         `(fn [] ~x))
-         (do 
-           (println "NO wrap for: "x)
-         x)))
+;(defmacro wrap-item [x]
+;     (if (or (and (= (type x) clojure.lang.PersistentList)
+;                  (symbol? (first x)))
+;             (= (type x) clojure.lang.Symbol))
+;         (do 
+;           (println  "Wrapped: " x)
+;         `(fn [] ~x))
+;         (do 
+;           (println "NO wrap for: "x)
+;         x)))
 
 (defn unwrap-item [x]
   (if (fn? x)
     (with-out-str (x))
-    (str x)))
+    (if (and (vector? x)
+             (= (:vExcept (meta x)) :with-out-str/pprint))
+      (with-out-str (apply pprint x))
+      (str x))))
 
 
 
@@ -69,13 +72,19 @@
 
 (defmacro vLogging-it 
    "Add logging information to logTrace (not shown yet).
-    The log-level is addedas first item of the list of log-items."
+    The log-level is added as first item of the list of log-items."
+   ;; NOTE: if you use functions as argument, this might deplete perm-gen
+   ;;  Each application generated a wrapper-function that is stored in a list.
    [level & args]
      `(vinzi.tools.vLogging/add-to-logTrace (concat ~level 
                       ~(for [x# `(list ~@args)]
                          (if (and (= (type x#) clojure.lang.PersistentList)
                                       (symbol? (first x#)))
-                             `(fn [] ~x#)
+                           (if (and (= (resolve (first x#)) #'clojure.core/with-out-str)
+                                    (= (count (rest x#)) 1)
+                                    (= (resolve (ffirst (rest x#))) #'clojure.pprint/pprint))
+                             (with-meta   (vec (rest (first (rest x#)))) {:vExcept :with-out-str/pprint})
+                             `(fn [] ~x#))
                              x#)))))
 
 (defmacro debug 
@@ -122,14 +131,3 @@
      (print-logTrace msg#)))
 
 
-(defn test-it []
-  (let [x {:a 1 :b 2}]
-    (debug "only text")
-    (trace 2 Math/PI "long, double and Text")
-    (debug  "with variable:" x)
-    (debug "with function over variable:"  (pprint x))
-    (doseq [y (range 3)]
-      (let [x (assoc x :b y)]
-        (debug "Loop-" x  (pprint x))))
-    (error "trigger-print-trace")
-  ))
