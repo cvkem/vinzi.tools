@@ -68,6 +68,15 @@
                              "\nException of type: " (class e))
                     (if-let [rootCause (root-cause e)]
                       (print-stack-trace rootCause)
+;                      (if (isa? (class rootCause) java.lang.Throwable)
+;                        (if (isa? (class rootCause) java.lang.NullPointerException)
+;                          (do
+;                            (warn "for null-pointers temporarily removed (print-stack-trace rootCause) in vExcept/report")
+;                            ;;(print-stack-trace rootCause)
+;                            (println "root-cause of class: " (class rootCause))
+;                            (println "org-except: " (print-stack-trace e)))
+;                          (print-stack-trace rootCause))
+;                        (println "root-cause of class: " (class rootCause)))
                       (println "No root-cause given"))
                     (println "Message: " (.getMessage e))
                     (when (isa? (class e) java.sql.SQLException)
