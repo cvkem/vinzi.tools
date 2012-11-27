@@ -19,6 +19,14 @@
 ;(defn set-KeyWordFunc [kwf]
 ;  (def KeyWordFunc kwf))
 
+(defn xml-true [x]
+;  (if (= (class x) java.lang.Boolean)
+;    x
+    (if (string? x)
+      (= (str/lower-case x) "true")  ;; this is the special case
+      x))  ;; boolean, nil  (and other values) treated as expected
+
+
 (defn csv-to-map "Takes a csv-dataset (sequence of vectors) 
  and translates it to a (lazy) sequence of maps, using the first row as map-keys.
  Surrounding spaces are trimmed, and all values are returned as strings."
@@ -115,6 +123,7 @@
         keepAllColumns (if (some #{:keepAllColumns} (keys params))
                          (:keepAllColumns params)
                          true)   ;; if key does not exist default to true
+        lowCaseKey (xml-true lowCaseKey)
         params     (dissoc params :lowCaseKey :columnMap :keepAllColumns :keywordizeKeys)
         make-char (fn [p k]
                      (if-let [v (k p)]
@@ -204,7 +213,8 @@
                                   (error msg)
                                   (throw (Exception. msg)))
                                 (info lpf "Implied conversion on first record:\n\t" msg))
-                              (if (and (some #{:lowCaseKey} (keys params)) (not (:lowCaseKey params)))
+                              (if (and (some #{:lowCaseKey} (keys params))    ;; the key exists 
+                                       (not (xml-true (:lowCaseKey params))))            ;; and its value is false 
                                 (do   ;; vSql/with-db-caps
                                   (debug lpf "DB-handling in a case-sensitive way. First record: " (first data))
                                   (let [cols    (keys (first data))
@@ -225,8 +235,10 @@
                                           (swap! showCnt inc)
                                           (debug lpf "insert stmt " @showCnt ": " qry))
                                         (sql/do-commands qry)))))
-                                (do
-                                  (debug lpf "DB-handling in with lower-case fieldnames. First record: " (first data))
+                                (let [upKeys (remove nil? (map #(let [k (name %)] (when (not= k (str/lower-case k)) k)) (keys colInfo)))] 
+                                  (debug lpf "DB-handling with lower-case fieldnames. First record: " (first data))
+                                  (when (seq upKeys)
+                                    (error lpf "Some of the keys are in upper-case: " (str/join ", " upKeys)))
                                   (apply sql/insert-records targetTbl (map mapConv data)))))
                               (warn lpf "No data received.")))]
         (debug lpf "Reading csv-file with params: "  params)
