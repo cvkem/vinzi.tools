@@ -122,7 +122,7 @@
     (clear-logTrace)
     (when (<= (update-cnt) maxTraces)
       ;; TODO: should it be better to print the trace one level higher at warn-level (or should we prune logging via the log4j.xml/logback file"))
-      (ctl/debug msg ":\n" (str/join "\n" (map line-string lt (rest (range))))))))
+      (ctl/error msg ":\n" (str/join "\n" (map line-string lt (rest (range))))))))
 
 (defmacro error 
   "Print the full logTrace with args as a prefix-message."
