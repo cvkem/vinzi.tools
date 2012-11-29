@@ -204,14 +204,14 @@
                                     noTarget (some #(nil? (colInfo  %)) (keys firstRec))
                                     noSrc    (filter #(nil? (% (set (keys firstRec)))) (keys colInfo)) 
                                     msg (str/join "\n\t"
-                                         (map #(str (first %) "=" (second %) " \t--> " (colInfo  (first %))) firstRec))]
+                                         (map #(str (first %) " = " (second %) " \t--> " (colInfo  (first %))) firstRec))]
                                 (when (seq noSrc)
-                                  (info lpf "\nSome field of the target table do not get a value (continue loading):\n\t"
+                                  (info lpf "\nSome field(s) of the target table do not get a value (continue loading):\n\t"
                                         (str/join "\n\t" noSrc)))
                               (if noTarget
-                                (let [msg (str lpf "One or more fields can not be mapped to the database-table:\n\t" msg)]
-                                  (error msg)
-                                  (throw (Exception. msg)))
+                                (throw (Exception. (str lpf "One or more fields can not be mapped to the database-table:\n\t"
+                                                        "fieldname = value  -->  target-type \n\t"
+                                                        msg)))
                                 (info lpf "Implied conversion on first record:\n\t" msg))
                               (if (and (some #{:lowCaseKey} (keys params))    ;; the key exists 
                                        (not (xml-true (:lowCaseKey params))))            ;; and its value is false 
