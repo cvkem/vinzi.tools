@@ -26,7 +26,8 @@
 ;         x)))
 
 (defn unwrap-item [x]
-  (if (fn? x)
+  (if (and (fn? x)
+           (:vLogging/exec (meta x)))  ;; function symbols should be printed. Only wrapper functions should be executed.
     (with-out-str (x))
     (if (and (vector? x)
              (= (:vExcept (meta x)) :with-out-str/pprint))
@@ -39,9 +40,6 @@
   [& args]
   `(ctl/info ~@args))
 
-(defmacro warn "Wired directly to clojure.tools.logging/info"
-  [& args]
-  `(ctl/warn ~@args))
 
 ;;  Old version of code without limitations to the depth of the trail
 ;;  (and more inlining of code).
@@ -84,8 +82,12 @@
                                     (= (count (rest x#)) 1)
                                     (= (resolve (ffirst (rest x#))) #'clojure.pprint/pprint))
                              (with-meta   (vec (rest (first (rest x#)))) {:vExcept :with-out-str/pprint})
-                             `(fn [] ~x#))
-                             x#)))))
+                             `(with-meta (fn [] ~x#) {:vLogging/exec true}))
+                           ;; tried to detect function-symbols to prent a call ,
+                           ;; however, determining whether a symbol binds to a function can only be detected at run-time.
+;                           (if (symbol? x#)   ;; function-symbols should be printed, otherwise it will be executed
+;                               `(with-out-str (print ~x#))
+                               x#)))))
 
 (defmacro debug 
   "Add logging information to logTrace (not shown yet)."
@@ -106,7 +108,7 @@
 (defn print-logTrace
   "Print a numbered logTrace prefixed by a message.
    All lines are prefixed by a number and a token D(debug) or T(race) t,o indicate the log-level."
-  [msg]
+  [msg level]
   (let [lt @logTrace
         get-msg-keyword (fn []
                           ;; get the keyword by removing #123 infixes and suffixes from the message.
@@ -122,12 +124,22 @@
     (clear-logTrace)
     (when (<= (update-cnt) maxTraces)
       ;; TODO: should it be better to print the trace one level higher at warn-level (or should we prune logging via the log4j.xml/logback file"))
-      (ctl/error msg ":\n" (str/join "\n" (map line-string lt (rest (range))))))))
+      (let [fullMsg (str msg ":\n" (str/join "\n" (map line-string lt (rest (range)))))]
+        (if (= level :warn)
+          (ctl/warn fullMsg)
+          (ctl/error fullMsg))))))
 
-(defmacro error 
-  "Print the full logTrace with args as a prefix-message."
+
+(defmacro warn
+  "Print the full logTrace to the log-file with args as a prefix-message at warn-level."
   [& args]
   `(let [msg# (str ~@args)]
-     (print-logTrace msg#)))
+     (print-logTrace msg# :warn)))
+
+(defmacro error 
+  "Print the full logTrace to the log-file with args as a prefix-message at error-level."
+  [& args]
+  `(let [msg# (str ~@args)]
+     (print-logTrace msg# :error)))
 
 

@@ -225,6 +225,8 @@
                                     ;; TODO: investigated whether this could be prepared statement
                                     ;; or we can get the naming strategy for uppercase working for insert-records
                                     (debug lpf "format is: " qryFmt)
+                                    ;; TODO: may-be mapConv should remove empty lines, or check number of data-items
+                                    ;;  before running mapCon (empty last line now kills the data-load)
                                     (doseq [d (map mapConv data)]
                                       (let [values (->> cols
                                                      (map #(% d))

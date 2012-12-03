@@ -23,7 +23,7 @@
 
 (defn printSQLExcept
   "Print report for an SQL exception
-   (including one step higher in the exception-chain."
+   (including one step higher in the exception-chain)."
   [location e]
   (vExcept/report location e))  
 ;  (error (with-out-str
@@ -575,6 +575,21 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
                      " (including double quotes). Received: " qNme)]
         (error msg)
         (throw (Exception. msg))))))
+
+
+
+
+
+(defn do-commands-safe 
+  "Run a command within an existing connection and report back whether there is an exception.
+   (exceptions are not reported to the log-file)."
+  [qry]
+  (try
+    (sql/do-commands qry)
+    "No exception"
+    (catch Exception e
+      (println "exception observed: " (.getMessage e))
+      (vExcept/except-str "" e))))
 
 
 

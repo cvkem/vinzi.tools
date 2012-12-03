@@ -55,38 +55,35 @@
            (vinzi.tools.vExcept/report except#)
            (throw except#)))))
 
+(defn except-str
+  "Extract an exception-msg from 'e' and prefix is with 'msg'. 
+   If 'e' is an sqlException some additional fields and the next-exception are reported." 
+  [msg e]
+  (if e
+    (with-out-str
+      (println msg 
+               "\nException of type: " (class e))
+      (if-let [rootCause (root-cause e)]
+        (print-stack-trace rootCause)
+        (println "No root-cause given"))
+      (println "Message: " (.getMessage e))
+      (when (isa? (class e) java.sql.SQLException)
+        (println "\tSQL-related Exception details:"
+                 "\n\tErrorCode: " (.getErrorCode e)
+                 "\n\tSQLState:  " (.getSQLState e))
+        (when-let [n (.getNextException e)]
+          (println "\nNext-message: " (.getMessage n)
+                   "\n\tNext-errorcode: " (.getErrorCode n)))))
+    (str msg  "(Exception is nil)")))
+
 (defn report 
   "Print report for an exception, if this exception has not been reported already.    
    (including one step higher in the exception-chain)."
   ([e] (report "" e))
   ([msg e]
-    (let [msg (if (is-lastException? e)
-                msg
-                (if e
-                  (with-out-str
-                    (println msg 
-                             "\nException of type: " (class e))
-                    (if-let [rootCause (root-cause e)]
-                      (print-stack-trace rootCause)
-;                      (if (isa? (class rootCause) java.lang.Throwable)
-;                        (if (isa? (class rootCause) java.lang.NullPointerException)
-;                          (do
-;                            (warn "for null-pointers temporarily removed (print-stack-trace rootCause) in vExcept/report")
-;                            ;;(print-stack-trace rootCause)
-;                            (println "root-cause of class: " (class rootCause))
-;                            (println "org-except: " (print-stack-trace e)))
-;                          (print-stack-trace rootCause))
-;                        (println "root-cause of class: " (class rootCause)))
-                      (println "No root-cause given"))
-                    (println "Message: " (.getMessage e))
-                    (when (isa? (class e) java.sql.SQLException)
-                      (println "\tSQL-related Exception details:"
-                               "\n\tErrorCode: " (.getErrorCode e)
-                               "\n\tSQLState:  " (.getSQLState e))
-                      (when-let [n (.getNextException e)]
-                        (println "\nNext-message: " (.getMessage n)
-                                 "\n\tNext-errorcode: " (.getErrorCode n)))))
-                  (str msg  "(Exception is nil)")))]
+    (let [msg (if (is-lastException? e) 
+                msg 
+                (except-str msg e))]
       (set-lastException e)
       (when (seq msg)
       (error msg)))))
