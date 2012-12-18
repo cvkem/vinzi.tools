@@ -214,6 +214,14 @@
     (java.sql.Timestamp. newMillis)))
 
 
+(defn get-TS-msOffset
+  "Get the sql-timestamp at msOffset milliseconds of 'dt'. A dayOffset of -1 corresponds to 1 minute earlier.
+   Can operate on time-stamps and on java.util.Date. (java.sql.Date does not have sufficient precision)"
+  [dt msOffset]
+  (let [millis (.getTime dt)
+        newMillis (+ millis msOffset)]
+    (java.sql.Timestamp. newMillis)))
+
 (def zoneOffsetMillis (let [cal (java.util.Calendar/getInstance)
                             dst (.get cal java.util.Calendar/DST_OFFSET)
                             zone (.get cal java.util.Calendar/ZONE_OFFSET)]
