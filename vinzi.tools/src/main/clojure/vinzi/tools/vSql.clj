@@ -276,7 +276,7 @@
 
 
 
-(defn create-table "Create a table 'qTblName' with fields 'fields' if it does not exist yet. 
+(defn create-table "Create a table 'schema'.'tblName' with fields 'fields' if it does not exist yet. 
   If 'dropIt' is true than it tries to drop the table first via a drop CASCADE!
   The 'fields'-parameter is a list of field definition strings (including attributes)."
   [schema tblNme fields dropIt]

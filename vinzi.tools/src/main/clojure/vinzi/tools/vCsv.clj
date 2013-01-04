@@ -40,6 +40,7 @@
                      (map keyword))
           _ (debug lpf "with headers: " (str/join ", " header))
           data   (next csv)
+          ;; speedup loop below by using a transient data-structure
           to-map (fn [row]
                    (into {} (map #(vector %1 (str/trim %2)) header row)))]
       (map to-map data))))
@@ -76,6 +77,25 @@
         ;; csvMap is non-lazy as file will be closed
         ;; (a template for a lazy-open is given below)
         (doall csvMap)))))
+
+(comment ;; test performance
+;; read-csv-map seems to be slow. Timing on 16000 rows:
+;;
+(def csvFile "resources/scipio/atcMapping.csv")
+;;
+(time (def bareRows 
+                        (with-open [inp (io/reader csvFile)]
+                          (doall (csv/read-csv inp :separator \;)))))
+;;"Elapsed time: 236.999671 msecs"
+;;  or 1e-6 per row
+;;
+;; 
+(time (def rows (vCsv/read-csv-map csvFile :separator \;)))
+;;"Elapsed time: 258784.647938 msecs"
+;;  0.002 second per row
+;; Oplossing: gebruik van transients, of sneller oplossing in csv-to-map
+)
+
 
 (defn csv-columnMap
   "Apply a column-mapping as defined by 'columnMap' to the dataset. If 'keepAll' is set to false, then
@@ -169,12 +189,15 @@
   "Read the data from a csv-file with (read-csv params) and append this data to the existing table :targetTbl 
    while matching the column-names as specified in the csv-file. 
    Params is a map with required keys :csvFile :targetTbl and optional keys :schema :separator :quote :lowCaseKey :columnMap :keepAllColumns
-   The targetTbl is assumed to be a correctly quoted and sufficiently specified table identifier.
+  ?? The targetTbl is assumed to be a correctly quoted and sufficiently specified table identifier.
    (Currently does not use naming strategy, so field-names should be in lower-case and should not require quoting.)"
   [params]
   {:pre [(map? params)]}
   ;; no unit-test included yet, as this requires setting up a database connection.
     (let [lpf "(read-csv-to-db): "
+          ;;  keepAllColumns also has a meaning to csv-columnMap (when combined with columnMap)  !!
+          keepAllColumns (if (some #{:keepAllColumns} (keys params))
+                           (:keepAllColumns params) true) 
           params (assoc params :keywordizeKeys true)]
       (if-let [targetTbl (:targetTbl params)]
         (let [{:keys [schema table]} (if-let [schema (:schema params)]
@@ -208,7 +231,7 @@
                                 (when (seq noSrc)
                                   (info lpf "\nSome field(s) of the target table do not get a value (continue loading):\n\t"
                                         (str/join "\n\t" noSrc)))
-                              (if noTarget
+                              (if (and keepAllColumns noTarget)
                                 (throw (Exception. (str lpf "One or more fields can not be mapped to the database-table:\n\t"
                                                         "fieldname = value  -->  target-type \n\t"
                                                         msg)))
@@ -251,6 +274,34 @@
             (apply sql/insert-records targetTbl data))
           (read-csv-lazy (dissoc params :targetTbl :schema) processFunc)))
       (throw (Exception. (str lpf "No parameter :targetTbl found in call to read-csv-to-db"))))))
+
+
+
+(defn map-seq-to-csv 
+  "Map a sequence of maps to a format that can be output to a csv."
+  [data]
+  (let [k (keys (first data))
+        vecData (map #(vec (map % k)) data)
+        ks (vec (map name k))]
+    (cons ks vecData)))
+
+
+(comment ;; test example map-seq-to-csv
+  (def recs  '({:a 1 :b 2} {:a 3 :b \c}))
+  (map-seq-to-csv recs)
+  ;; output  (first line are headers
+  ;; (["a" "b"] [1 2] [3 \c])
+  )
+
+(defn write-csv 
+  "Write a sequence of maps (as produced by vCsv/read-csv-map) to a csv-file again.
+   The keys of the first map-item will be used a keys for the full sequence."
+  [fName data & opts]
+  (with-open [out (io/writer fName)]
+    (let [data (map-seq-to-csv data)]
+        (apply csv/write-csv out data opts))))
+
+
 
 
 ;; Template for a lazy-open-file that closes the file after reading the
