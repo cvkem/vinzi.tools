@@ -41,9 +41,25 @@
           _ (debug lpf "with headers: " (str/join ", " header))
           data   (next csv)
           ;; speedup loop below by using a transient data-structure
+;; performance toMap when processing a file containing 1000 data-rows)
+;;          to-map (fn [row]
+;;                   (into {} (map #(vector %1 (str/trim %2)) header row)))]
+          ;; 2650 ms  so 2,6 ms per row
           to-map (fn [row]
-                   (into {} (map #(vector %1 (str/trim %2)) header row)))]
+                   (zipmap header (map str/trim row)))
+          ;; clojure.java.jdbc uses zipmaps to (see resultset-seq  in file jcdb.clj)
+          ;; 2650 ms  so 2,6 ms per row
+          to-map (fn [row]
+                   (apply hash-map (interleave header (map str/trim row))))
+          ;; 2610 ms  so 2,6 ms per row
+          ]
       (map to-map data))))
+
+
+;; performance toMap when processing a file containing 1000 data-rows)
+;;           to-map (fn [row]  (into {} (map #(vector %1 (str/trim %2)) header row)))]
+;;  2650 ms
+
 
 
 ;; this is a cdp-specific function. cdp provides the extend-path stuff, but this is wider applicable
@@ -71,15 +87,15 @@
         fName (extend-csv-path fName)]
     (with-open [f (io/reader fName)]
       (let [csvData (apply csv/read-csv f opts)
-            _ (trace lpf "csvData = " (apply str csvData))
+            _ (trace lpf "csvData (first 10) = " (apply str (take 10 csvData)))
             csvMap  (csv-to-map csvData)]
-        (trace lpf "csvMap = " (with-out-str (pprint csvMap)))
+        (trace lpf "csvMap (first 10)  = " (with-out-str (pprint (take 10 csvMap))))
         ;; csvMap is non-lazy as file will be closed
         ;; (a template for a lazy-open is given below)
         (doall csvMap)))))
 
 (comment ;; test performance
-;; read-csv-map seems to be slow. Timing on 16000 rows:
+;; read-csv-map seems to be slow. Timing on 114800 rows:
 ;;
 (def csvFile "resources/scipio/atcMapping.csv")
 ;;
@@ -91,9 +107,15 @@
 ;;
 ;; 
 (time (def rows (vCsv/read-csv-map csvFile :separator \;)))
-;;"Elapsed time: 258784.647938 msecs"
-;;  0.002 second per row
-;; Oplossing: gebruik van transients, of sneller oplossing in csv-to-map
+;;"Elapsed time: 3000 msecs"
+;;  0.03 second per row
+
+;; when adding the  (doall at the line 'csvData (doall (apply csv/read-csv f opts))'
+;; the timing reduces in an extreme way to
+;; "Elapsed time: 3170.485984 msecs"
+;;  or 0.03 per row
+
+
 )
 
 
