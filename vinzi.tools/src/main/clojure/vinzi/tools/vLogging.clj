@@ -7,10 +7,11 @@
 
 (def logTrace (atom []))
 
+;; for each identical msg at most 'maxTraces will be generated
 (def maxTraces 3)
 
 ;; when the logTrace exceeds 2*logTraceDepth levels it will be pruned to logTraceDepth
-(def logTraceDepth 1000)
+(def logTraceDepth 100)
 
 (def trackTraceCount (atom {}))
 
@@ -105,11 +106,19 @@
     []
   (swap! logTrace (fn[_] [])))
 
+
 (defn print-logTrace
   "Print a numbered logTrace prefixed by a message.
    All lines are prefixed by a number and a token D(debug) or T(race) t,o indicate the log-level."
   [msg level]
-  (let [lt @logTrace
+  (let [ltHeader (str "<![START LOGTRACE[ " (str/upper-case (name level)) ": ")
+        ;; get the current log-trace (or its tail)
+        lt (let [maxTraceItems (if (= level :warn) 10 100)
+                 lt @logTrace
+                 dropTraceItems (- maxTraceItems (count lt))]
+             ;; TODO (if (> dropTraceItems 0) ) ;; PREFIX A MESSAGE ABOUT DROPPING
+             (drop dropTraceItems lt))
+        ltFooter "]END LOGTRACE]>"
         get-msg-keyword (fn []
                           ;; get the keyword by removing #123 infixes and suffixes from the message.
                           ;;  (Used to make unique messages that map to the same trackTraceCount key.
@@ -124,7 +133,7 @@
     (clear-logTrace)
     (when (<= (update-cnt) maxTraces)
       ;; TODO: should it be better to print the trace one level higher at warn-level (or should we prune logging via the log4j.xml/logback file"))
-      (let [fullMsg (str msg ":\n" (str/join "\n" (map line-string lt (rest (range)))))]
+      (let [fullMsg (str ltHeader msg "\n" (str/join "\n" (map line-string lt (rest (range)))) ltFooter)]
         (if (= level :warn)
           (ctl/warn fullMsg)
           (ctl/error fullMsg))))))
