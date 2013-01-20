@@ -153,7 +153,9 @@
                             false)]
               outcome))))
 
-(defn table-length [schema table]
+(defn table-length 
+  "Calculate the number of rows in a table (or view)"
+  [schema table]
   (let [lpf "(table-length): "]
     (try
       (let [qry (str "SELECT count(*) AS cnt FROM " (qsp schema table) ";")]
@@ -164,7 +166,16 @@
         (vExcept/report lpf e)
         0))))
 
-
+(defn trunc-table 
+  "Truncate a table and returns nil on succes and an exception-message on failure (exception has been reported first)"
+  [schema table]
+  (let [lpf "(trunc-table): "]
+    (try
+      (let [qry (str "DELETE FROM " (qsp schema table) ";")]
+        (sql/do-commands qry))
+      (catch Exception e
+        (vExcept/report lpf e)
+        (.getMessage e)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
