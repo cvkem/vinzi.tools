@@ -111,3 +111,26 @@
            ;;(pprint convertors)
            (fn [m]
              (into {} (map (fn [[k conv]] [ k (conv (get m k))]) convertors))))))
+
+
+;; Usually (small) maps have sorted keys when created in one go. However, sometimes this order gets lost
+;; on maps making comparison fail. 
+(defn make-sorted-map 
+  "Prepare a sorted-map of x where the ordering of keys is given by the lexical order of the keys."
+  [x]
+  (apply sorted-map-by compare (interleave (keys x) (vals x))))
+
+
+(comment 
+  ;;  map-compare using sorted map, however, example shows it is not neede (at least not for small vectors)
+(defn map-compare [x y]
+     (let [srt-map #(apply sorted-map (apply concat (seq %)))]
+       (= (srt-map x) (srt-map y))))
+;=> (map-compare {:a 1 :b 2} {:b 2 :a 1})
+;true
+;=> (= {:a 1 :b 2} {:b 2 :a 1})
+;true
+
+)  ;; end map-compare 
+
+
