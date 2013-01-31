@@ -72,7 +72,7 @@
                  false)
                true))))))
 
-
+;; TODO: see whether these convertors should be combined with convertors from vinzi.anchorModel.extractModel.convertors and vinzi.eis.scipio.extractModel
 (defn get-map-str-convertor 
   "Takes a map where values are the destination types and returns a function that 
   takes a map containing strings as values returns a new map with the string-values 
@@ -93,9 +93,17 @@
                                       (throw (Exception. (str "Obtained type " tp " which is not a string or keyword")))))]
                          (case tp
                            ("integer" :int) 
-                               (fn [x] (Integer/parseInt (str/trim x)))
+                               (fn [x] (if-let [x (and x (str/trim x))]
+                                         (if (seq x)   ;; prevent nil string from being processed
+                                           (Integer/parseInt x)
+                                           0)    ;; default value is 0  (no NaN availabel)
+                                         0))
                            ("double precision" "double" "real" :real :double) 
-                               (fn [x] (Double/parseDouble (str/trim x)))
+                               (fn [x] (if-let [x (and x (str/trim x))]
+                                         (if (seq x)
+                                           (Double/parseDouble (str/trim x))
+                                           Double/NaN)   ;; empty string translates to NaN
+                                         Double/NaN))    ;; nil translates to NaN
                            (:string :text "string" "text" "varchar" "character varying")
                                (fn [x] x)
                            (:date "date")  
