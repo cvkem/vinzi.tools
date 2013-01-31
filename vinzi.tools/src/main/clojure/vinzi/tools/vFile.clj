@@ -86,6 +86,125 @@
         (str/split reFileSep)
         (last))))
 
+
+(defn- rw-permissions 
+  "Check the permisions on an existing file object (internal function)"
+  [f]
+  (let [lpf "(rw-permissions): "
+        rw {:read (.canRead f)
+            :write (.canWrite f)}]
+    (trace lpf "read-write permissions are " rw)
+    rw))
+
+
+(defn file-exists 
+  "Checking whether a file exists and and return the read/write permissions if it exists."
+  [fName]
+  (let [lpf "(file-exists): "
+        f  (java.io.File. fName)]   ;; File. object does not need to be closed!
+    (trace lpf "Check existence of file: " fName)
+    (when-let [res (and f (.exists f) (.isFile f))]
+      (rw-permissions f))))
+
+(defn dir-exists 
+  "Checking whether a directory exists and return the read/write permissions if it exists."
+  [fName]
+  (let [lpf "(dir-exists): "
+        f  (java.io.File. fName)]   ;; java.io.File. object does not need to be closed!
+    (trace lpf "Check existence of directory: " fName)
+    (when-let [res (and f (.exists f) (.isFile f))]
+      (rw-permissions f))))
+
+
+
+(defn ensure-dir-exists 
+  "Ensure that the directory specified in 'fName' exists (including all preceding directories). 
+   If fName is a directory that needs to be created you should a a terminating file-separator (/)." 
+  [fName]
+  {:pre [(string? fName)]}
+  (debug "(ensure-dir-exists): for file " fName)
+  (let [isDir? (= (last (str/trim fName)) (first FileSep))
+        f  (java.io.File. fName)]
+  (if (.isDirectory f)
+    (.mkdirs f)
+    (let [fName (.getAbsolutePath f)
+          _  (trace "file-name expands as: " fName)
+          dir (str/split fName reFileSep)
+          dir (if isDir? dir (drop-last dir))
+;                (take (dec (count dir)) dir)
+          dir (str/join FileSep dir)
+          d   (java.io.File. dir)]
+      (.mkdirs d)))))
+
+
+
+(defn remove-contents-dir "Remove all contents of directory 'dName'. If a directory contains sub-directories, then a recursive deletion of all files of the sub-directory needs to be applied, as the Java File object does not allow you to delecte non-empty directories.
+The directory denoted by 'dName' will empty, but will not be deleted."
+  [dName]
+           ;;  (A more idiomatic apprach uses the file-seq function, that
+           ;;   returns a sequence of files and directories. However,
+           ;;   reverse sequence such that file are removed before dirs)
+  (letfn [(rm-contents-dir
+           [d]
+           ;;  remove alle files and directories in 'd'.
+           (trace "(remove-contents-dir) directory: " (.getAbsolutePath d))
+           (let [fList (.listFiles d)]
+             (doseq [f fList]
+               ;; (trace "removing file or directory " (.getName f))
+                  (when (.isDirectory f)
+                    (rm-contents-dir f))
+                  (.delete f)
+                  )))]
+    (debug "(remove-contents-dir) Recursively remove all contents of: "
+           dName "(possibly relative path)")
+    (let [d (java.io.File. dName)]
+      (if (and (.exists d) (.isDirectory d))
+        (rm-contents-dir d)
+        (debug "(remove-contents-dir): " dName
+               " is not a directory or does not exist. No action")))))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Walking a folder-structure
+;;   - walk-fs
+;;   - file-only seq 
+;;   ...
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(defn walk-fs "Perform a recursive walk over the file-system and apply action to each node (DFS). 
+The 'actOnDir' flag tells whether the action should be applied to a directory before being applied to the files >0, afterward <0 or neither 0 (default-value is don't apply action to directories).
+(Action is not applied to top-level directory)."
+  ;; TODO:
+  ;; a more idiomatic approach is based on:
+  ;;  ;;   (doseq [f (reverse (file-seq (io/file d)))]
+  ;;      (action f))
+  ;;  (if you do not reverse then you get a BFS walk)
+  ([fName action] (walk-fs fName action 0))
+  ([fName action actOnDir]
+  (letfn [(walk-dir [d]
+                (trace "(walk) directory: " (.getAbsolutePath d))
+                (let [fList (.listFiles d)]
+                  (doseq [f fList]
+                    (trace "visiting: " f " which is "
+                             (if (.isDirectory f) "directory" "file"))
+                    (if (.isDirectory f)
+                      (do
+                        (when (pos? actOnDir) (action f))
+                        (walk-dir f)
+                        (when (neg? actOnDir) (action f)))
+                    (action f)))))]
+         (let [f (if (= (type fName) java.io.File)
+                   fName (java.io.File. fName))]
+           (debug "visiting: " f " which is "
+                    (if (.isDirectory f) "directory"  "file"))
+           (if (.isDirectory f)
+             (walk-dir f)
+             (action f))))))
+
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; open a lazy sequence of files
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
