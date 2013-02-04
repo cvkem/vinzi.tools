@@ -181,6 +181,15 @@ The 'actOnDir' flag tells whether the action should be applied to a directory be
   ;;  ;;   (doseq [f (reverse (file-seq (io/file d)))]
   ;;      (action f))
   ;;  (if you do not reverse then you get a BFS walk)
+  ;;(defn nwalk [fName action]
+  ;;(doseq [f (file-seq (io/file fName))]
+  ;;  (action f)))
+  ;; has the same result as:
+  ;;   (walk-fs fName action 1)
+  ;;  except for the fact that it first operates on the top node.
+  ;;(def r1 (with-out-str (walk-fs "." #(when (.isDirectory %) (println( .getCanonicalFile %))) 1)))
+  ;; Use the reverse of the line-seq to get directories last
+
   ([fName action] (walk-fs fName action 0))
   ([fName action actOnDir]
   (letfn [(walk-dir [d]
@@ -203,7 +212,13 @@ The 'actOnDir' flag tells whether the action should be applied to a directory be
              (walk-dir f)
              (action f))))))
 
-
+(comment
+(map #(.getName %) (.listFiles (java.io.File. ".")
+   	  (reify
+   	    java.io.FileFilter
+   	    (accept [this f]
+   	      (.isDirectory f)))))
+)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; open a lazy sequence of files
