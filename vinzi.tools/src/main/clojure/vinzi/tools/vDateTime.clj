@@ -162,7 +162,9 @@
           (java.sql.Date. x)
           (if (= tp java.lang.String)
             (str-to-sql-date x)
-            (throw (Exception. (str "no conversion for value " x " of type " tp))))))))) 
+            (if (and (sequential? x) (let [cnt (count x)] (or (= cnt 3) (= cnt 6))))
+              (apply make-sql-date x)
+              (throw (Exception. (str "no conversion for value " x " of type " tp)))))))))) 
 
 (defn convert-to-timestamp 
   "Convert a date-like object or date-formated string to a java.sql.Timestamp "
