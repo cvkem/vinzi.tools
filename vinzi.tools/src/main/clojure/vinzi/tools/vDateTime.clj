@@ -188,12 +188,22 @@
 ;; functions to manage offsets
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
+(assert (= (java.util.GregorianCalendar/SATURDAY) 7))
+(assert (= (java.util.GregorianCalendar/SUNDAY) 1))
+(def dayOfWeek ["--"
+                "Zondag"
+                "Maandag"
+                "Dinsdag"
+                "Woensdag"
+                "Donderdag"
+                "Vrijdag"
+                "Zaterdag"])
 
 (defn get-day-of-week "Get day of week for a date-object using the java.util.GregorianCalendar (SUNDAY=1)."
   ([] (get-day-of-week Now))
   ([dt]
-    (let [{:keys [year month day]} (get-ymd-date dt)
+    (let [dt (if (map? dt) dt (get-ymd-date dt))
+          {:keys [year month day]} dt
           cal  (java.util.GregorianCalendar. year (dec month) day)]
       (.get cal java.util.GregorianCalendar/DAY_OF_WEEK)
       )))

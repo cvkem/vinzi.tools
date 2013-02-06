@@ -469,9 +469,7 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
               kv (keyword (str/lower-case valCol))
               ks (map kk res)
               vs (map kv res)
-              mapping (apply hash-map (interleave ks vs))
-              ;; identical and better would be
-              ; mapping (zipmap ks vs)
+              mapping (zipmap ks vs)
               ]
           (doall mapping)))
       (do
