@@ -118,23 +118,48 @@
 (defn db-key "Translate a fieldname to a string that retrieves the field from the jdbc hashmaps." [x]
   (keyword (str/lower-case x)))
 
-(defn generate-db [{:keys [classname subprotocol
-                          db-host db-port db-name
-                          user password]}]
-  (when (not db-name)
-    (error "Definition of db-name is manditory in generate-db"))
-  (when (not user)
-    (error "Definition of user is manditory in generate-db"))
-  (when (not password)
-    (error "Definition of password is manditory in generate-db"))
 
-  {:classname (if classname classname (:classname defaultDb))
-          :subprotocol (if subprotocol subprotocol (:subprotocol defaultDb))
-          :subname (str "//" (if db-host db-host "localhost")
-                             (if db-port (str ":" db-port) "")
-                             "/" db-name)
-          :user user
-          :password password})
+(defn generate-db
+  "Generate a db-connection record based on the provided parameters supplemented with parameters from 'defaultDb'. 
+     (A optional url-parameter is assumed to have a shape like: [subprotocol]//[db-host]:[db-port]/[database], 
+           db-port is optional and a 'jdbc:' prefix is removed."
+  [{:keys [classname subprotocol
+                          db-host db-port db-name
+                          user password
+                          url] :as dbPars}]
+  (let [lpf "(vSql/generate-db): " ]
+    (when (not (and (or db-name url) user password))
+      (vExcept/throw-except lpf "Definition of 'db-name', 'user', and 'password' is manditory in generate-db (where 'db-name' can be replaced by 'url')."))
+    (let [baseRec (if url
+                    (let [url (str/trim url)
+                          jdbcPrefix "jdbc:"
+                          url (if (.startsWith url jdbcPrefix) (apply str (drop (count jdbcPrefix) url)) url)]
+                      ;; parse url as: [subprotocol]//[db-host]:[db-port]/[database]
+                      (if-let [parsedUrl (re-find #"([\w:-_]*)//([\w\._-]*):(\d*)/(\w*)" url)]
+                        (zipmap [:url :subprotocol :db-host :db-port :db-name] parsedUrl)
+                        ;; parse url as: [subprotocol]//[db-host]/[database]    (no db-port)
+                        (if-let [parsedUrl (re-find #"([\w:-_]*)//([\w\._-]*)/(\w*)" url)]
+                          (zipmap [:url :subprotocol :db-host :db-name] parsedUrl))))
+                    {})
+          ;; strip trailing \: in subprotocol   (needed as hsql subprotocol is hsqldb:hsql
+          baseRec  (if-let [subprotocol (:subprotocol baseRec)]
+                     (if (= (last subprotocol) \:)  
+                       (assoc baseRec :subprotocol (apply str (take (dec (count subprotocol)) subprotocol)))  
+                       baseRec)
+                     baseRec)
+          defaults  {:classname    (:classname defaultDb)
+                     :subprotocol  (:subprotocol defaultDb)
+                     :db-host       "localhost"}
+          ;; patch the defaults for values that do not exist
+          {:keys [classname subprotocol
+                          db-host db-port db-name
+                          user password]}  (into (into defaults baseRec) dbPars)
+          ]
+      {:classname    classname
+       :subprotocol  subprotocol
+       :subname      (str "//" db-host (if db-port (str ":" db-port) "") "/" db-name)
+       :user         user
+       :password     password})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  auxiliary functions for testing purpose

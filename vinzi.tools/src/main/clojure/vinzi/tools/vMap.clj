@@ -128,9 +128,15 @@
   [x]
   (apply sorted-map-by compare (interleave (keys x) (vals x))))
 
+(defn map-compare 
+  "Map-compare does a comparison of two maps by first sorting them. For small maps this is not needed, but for larger maps, or maps that have been created/modified in multiple stages the ordering of keys is not quaranteed, and comparison might fail."
+  [x y]
+     (let [srt-map #(apply sorted-map (apply concat (seq %)))]
+       (= (srt-map x) (srt-map y))))
+
 
 (comment 
-  ;;  map-compare using sorted map, however, example shows it is not neede (at least not for small vectors)
+  ;;  map-compare using sorted map, however, example shows it is not needed (at least not for small vectors)
 (defn map-compare [x y]
      (let [srt-map #(apply sorted-map (apply concat (seq %)))]
        (= (srt-map x) (srt-map y))))
