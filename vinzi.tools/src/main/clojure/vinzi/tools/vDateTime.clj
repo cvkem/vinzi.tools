@@ -81,6 +81,14 @@
 ;; functions for string-conversion and ymd transformations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn validate-date-str 
+  "A basic validation whether string 'd' has format YYYY-MM-DD.  Returns true or nil."
+  [d]
+  (let [lpf "(validate-date-str): " ]
+    (if (= (count (re-find #"(\d)+-(\d)+-(\d)+" d)) 4)
+      true
+      (warn lpf " data-string " d "  is  not valid"))))
+
 (defn str-to-sql-date 
   "Parse a string and turn is in an sql-date." [s]
   (let [parts (str/split s #"[-/]")]

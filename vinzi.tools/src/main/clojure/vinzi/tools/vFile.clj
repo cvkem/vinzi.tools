@@ -11,7 +11,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def FileSep (if (= java.io.File/separator "\\")
-                  "\\" "/"))
+                  "\\\\" "/"))
 
 (def reFileSep (re-pattern FileSep))
 
@@ -32,7 +32,8 @@
 (defn filename 
   "Generate a filename from 'base / filename'. If filename is an absolute path then 'base' is ignored.
    contrary to (io/file parent child) this function generates strings instead of file-objects
-  and it accepts children that start with a '/' (see above)."
+  and it accepts children that start with a '/' (see above).
+  (Furthermore this function has additional logging and error-reporting that is not in (io/file)"
   [base fName]
   (let [lpf "(filename): "]
     (if (= 0 (count (str/trim base)))
@@ -98,19 +99,19 @@
 
 
 (defn file-exists 
-  "Checking whether a file exists and and return the read/write permissions if it exists."
+  "Checking whether a file exists and and return the read/write permissions if it exists.  (fName can be string or java.io.File)"
   [fName]
   (let [lpf "(file-exists): "
-        f  (java.io.File. fName)]   ;; File. object does not need to be closed!
+        f  (io/file fName)]   ;; File. object does not need to be closed!
     (trace lpf "Check existence of file: " fName)
     (when-let [res (and f (.exists f) (.isFile f))]
       (rw-permissions f))))
 
 (defn dir-exists 
-  "Checking whether a directory exists and return the read/write permissions if it exists."
+  "Checking whether a directory exists and return the read/write permissions if it exists. (fName can be string or java.io.File)"
   [fName]
   (let [lpf "(dir-exists): "
-        f  (java.io.File. fName)]   ;; java.io.File. object does not need to be closed!
+        f  (io/file fName)]   ;; java.io.File. object does not need to be closed!
     (trace lpf "Check existence of directory: " fName)
     (when-let [res (and f (.exists f) (.isFile f))]
       (rw-permissions f))))
@@ -119,12 +120,13 @@
 
 (defn ensure-dir-exists 
   "Ensure that the directory specified in 'fName' exists (including all preceding directories). 
-   If fName is a directory that needs to be created you should a a terminating file-separator (/)." 
+   If fName is a directory that needs to be created you should a a terminating file-separator (/).
+    (fName can be string or java.io.File)" 
   [fName]
   {:pre [(string? fName)]}
   (debug "(ensure-dir-exists): for file " fName)
   (let [isDir? (= (last (str/trim fName)) (first FileSep))
-        f  (java.io.File. fName)]
+        f  (io/file fName)]
   (if (.isDirectory f)
     (.mkdirs f)
     (let [fName (.getAbsolutePath f)
@@ -157,7 +159,7 @@ The directory denoted by 'dName' will empty, but will not be deleted."
                   )))]
     (debug "(remove-contents-dir) Recursively remove all contents of: "
            dName "(possibly relative path)")
-    (let [d (java.io.File. dName)]
+    (let [d (io/file dName)]
       (if (and (.exists d) (.isDirectory d))
         (rm-contents-dir d)
         (debug "(remove-contents-dir): " dName
@@ -204,8 +206,7 @@ The 'actOnDir' flag tells whether the action should be applied to a directory be
                         (walk-dir f)
                         (when (neg? actOnDir) (action f)))
                     (action f)))))]
-         (let [f (if (= (type fName) java.io.File)
-                   fName (java.io.File. fName))]
+         (let [f (io/file fName)]
            (debug "visiting: " f " which is "
                     (if (.isDirectory f) "directory"  "file"))
            (if (.isDirectory f)
@@ -232,7 +233,7 @@ The 'actOnDir' flag tells whether the action should be applied to a directory be
   ([loc] (file-only-seq loc nil))
   ([loc filemask] (file-only-seq loc filemask nil))
   ([loc filemask dirmask]
-     (let [file (if (= (type loc) java.io.File) loc (io/file loc))
+     (let [file (io/file loc)
            fileOnly (->> file
                          (file-seq)
                          (filter #(.isFile %)))

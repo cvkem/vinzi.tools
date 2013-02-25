@@ -19,6 +19,36 @@
 ;(defn set-KeyWordFunc [kwf]
 ;  (def KeyWordFunc kwf))
 
+;; (def readerParams (atom ()))
+
+;; (defn set-reader-params
+;;   "Expand the parameters to a sequence and set them as readParams.
+;;    Existing params are overwritten."
+;;   [pars]
+;;   {:pre [(map? pars)]}
+;;   (let [seqPars (reduce concat pars)]
+;;     (swap! readerParams (fn[_] seqPars))))
+
+(defn extract-readerParams
+  "Extract the readerParams and return a tuple with
+   [pars readerPars], where the readerPars are a sequence ad
+   pars excludes the readerPars."
+  [pars]
+  (let [{:keys [readerParams]} pars
+	pars (dissoc pars :readerParams)
+	seqPars (reduce concat readerParams)
+	]
+    [pars seqPars]))
+
+(defn extract-readerParams-seq
+  [opts]
+  (let [kv (partition 2 opts)
+	partFunc #(= (first %) :readerParams)
+	readerParams (filter partFunc kv )
+	opts (reduce concat (remove partFunc kv))]
+    [opts (reduce concat readerParams)]))
+
+
 (defn xml-true [x]
 ;  (if (= (class x) java.lang.Boolean)
 ;    x
@@ -84,8 +114,9 @@
   [fName & opts]
   {:pre [(string? fName)]}
   (let [lpf "(read-csv-map): "
+	[opt readerParams] (extract-readerParams-seq opts)
         fName (extend-csv-path fName)]
-    (with-open [f (io/reader fName)]
+    (with-open [f (apply io/reader fName readerParams)]
       (let [csvData (apply csv/read-csv f opts)
             _ (trace lpf "csvData (first 10) = " (apply str (take 10 csvData)))
             csvMap  (csv-to-map csvData)]
@@ -160,6 +191,7 @@
    The processFunc is applied to the full-sequence of hash-maps that is produced (followed by doall, so it's not lazy."
   [params processFunc]
   (let [lpf (str "(read-csv " params ")")
+	[params readerParams] (extract-readerParams params)
         _ (debug lpf "with params: " (with-out-str (pprint params)))
         {:keys [lowCaseKey columnMap keywordizeKeys]}  params
         keepAllColumns (if (some #{:keepAllColumns} (keys params))
@@ -178,7 +210,7 @@
     (if-let [csvFile (:csvFile params)]
       (let [csvOpts (apply concat (remove #(nil? (second %)) (map #(vector % (% params)) [:quote :separator])))
             csvFile (extend-csv-path csvFile)]
-        (with-open [f (io/reader csvFile)]
+        (with-open [f (apply io/reader csvFile readerParams)]
 ;          (let [csvData (apply csv/read-csv f csvOpts)
 ;                _ (trace lpf "csvData = " (apply str csvData))
 ;                csvMap  (csv-to-map csvData lowCaseKey)]
@@ -303,6 +335,11 @@
   "Map a sequence of maps to a format that can be output to a csv."
   [data]
   (let [k (keys (first data))
+	;; prepare ordered keys (but retain type (keyword, string)
+	k (->> k
+	       (map #(vector (if (keyword %) (name %) %) %))
+	       (sort-by first)
+	       (map second))
         vecData (map #(vec (map % k)) data)
         ks (vec (map name k))]
     (cons ks vecData)))
