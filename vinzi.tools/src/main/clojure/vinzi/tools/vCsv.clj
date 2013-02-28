@@ -153,7 +153,10 @@
 (defn csv-columnMap
   "Apply a column-mapping as defined by 'columnMap' to the dataset. If 'keepAll' is set to false, then
    the columns that do not exist will be dropped from the dataset. 'KeywordizeKeys' turns the keys to 
-   keyword (default is using strings)."
+   keyword (default is using strings).
+   A columnMap consist of key-value pairs where the key is the column-name in the csv-file and the value is the name in the target-map.
+   (both keywords and strings are allowed) set keepAllColumns to false to limit the number of colums.
+  "
   ([data columnMap] (csv-columnMap data columnMap true false))
 ;;  option with three parameters NOT included to prevent errors on ordering of the boolean flags.
 ;;  (specify both or none).  
@@ -187,8 +190,11 @@
 
 ;; actually this is a cdp specific use of params
 (defn read-csv-lazy 
-  "Lazy read csv based on params-map. Required key is :csvFile. Allowed keys are :quote :separator :lowCaseKey :columnMap and :keepAllColumns.
-   The processFunc is applied to the full-sequence of hash-maps that is produced (followed by doall, so it's not lazy."
+  "Lazy read csv based on params-map. 
+   Required key is :csvFile. Allowed keys are :quote :separator :lowCaseKey :columnMap and :keepAllColumns.
+   The processFunc is applied to the full-sequence of hash-maps that is produced (followed by doall, so it's not lazy.
+   A columnMap consist of key-value pairs where the key is the column-name in the csv-file and the value is the name in the target-map.
+   (both keywords and strings are allowed) set keepAllColumns to false to limit the number of colums."
   [params processFunc]
   (let [lpf (str "(read-csv " params ")")
 	[params readerParams] (extract-readerParams params)
@@ -230,7 +236,11 @@
       (throw (Exception. (str lpf "No parameter :csvFile found in call to read-csv"))))))
 
 (defn read-csv
-  "Non-lazy read csv based on params-map. Required key is :csvFile. Allowed keys are :quote and :separator.
+  "Non-lazy read csv based on params-map.
+   Required key is :csvFile. Allowed keys are :quote :separator :lowCaseKey :columnMap and :keepAllColumns.
+   The processFunc is applied to the full-sequence of hash-maps that is produced (followed by doall, so it's not lazy.
+   A columnMap consist of key-value pairs where the key is the column-name in the csv-file and the value is the name in the target-map.
+   (both keywords and strings are allowed) set keepAllColumns to false to limit the number of colums.
    (Returns a non-lazy sequence of hash-maps)."
   [params]
   {:pre [(map? params)]}
@@ -360,7 +370,11 @@
     (let [data (map-seq-to-csv data)]
         (apply csv/write-csv out data opts))))
 
-
+(defn project-fill 
+  "Similar to set/project, however, missing values are patched with nil.
+   (Use this instead of set/project when preparing a collection to write a csv, to prevent missing keys)"
+  [xrel ks]
+  (map #(zipmap ks (map % ks)) xrel))
 
 
 ;; Template for a lazy-open-file that closes the file after reading the
