@@ -110,7 +110,8 @@
 
   
 (defn read-csv-map "Reads a csv dataset from 'fName' using the options 
- and translates it to a clojure map (returned sequence is not lazy)."
+ and translates it to a clojure map (returned sequence is not lazy).
+   Consider using vCsv/read-csv instead as it provides a more extensive range of options."
   [fName & opts]
   {:pre [(string? fName)]}
   (let [lpf "(read-csv-map): "
