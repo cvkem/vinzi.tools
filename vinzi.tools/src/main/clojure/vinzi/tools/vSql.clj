@@ -653,9 +653,13 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
       (doseq [cmd cmds]
         (doShow cmd)))))
 
-(defmacro defDb-function "Open the default database and evaluate 'cmd' in this scope."
-  [cmd]
-  `(sql/with-connection defaultDb ~cmd)) 
+(defmacro defDb-form "Open the default database and evaluates 'form' in this scope."
+  [form]
+  `(sql/with-connection defaultDb ~form)) 
+
+(defmacro defDb-function "Open the default database and evaluate 'func' without parameters in this scope."
+  [func]
+  `(sql/with-connection defaultDb (~func))) 
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
