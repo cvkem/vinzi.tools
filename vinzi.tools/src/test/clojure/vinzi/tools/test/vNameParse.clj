@@ -20,6 +20,9 @@
        "Jan Piet Abc"  {:firstnames "Jan Piet" :infix "" :lastnames "Abc" :initials "J.P." :abbrev "JPA"}
        "Jan Van De Abc-Def"  {:firstnames "Jan" :infix "Van De" :lastnames "Abc-Def" :initials "J." :abbrev "JvdAD"}
        "Jan Van De Abc Def"  {:firstnames "Jan" :infix "Van De" :lastnames "Abc Def" :initials "J." :abbrev "JvdAD"}
+       ;; when no space and thus no infix a space is assumed after last dot to allow a split in firstnames and lastnames
+       "J.abc"  {:firstnames "J." :infix "" :lastnames "abc" :initials "J." :abbrev "JA"}
+       "J.P.abc"  {:firstnames "J.P." :infix "" :lastnames "abc" :initials "J.P." :abbrev "JPA"}
        )
   )
 

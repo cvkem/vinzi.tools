@@ -37,8 +37,16 @@
       {:firstnames firstnames
        :infix      infix
        :lastnames  lastnames})
-    (let [splitted (str/split s #"\s+") ]
-      {:firstnames (str/join " " (drop-last splitted))
+    (let [splitted (str/split s #"\s+") 
+          splitted (if (= (count splitted) 1)   ;; split at last . (of initials) if the string could not be split on spaces.
+                     (-> (first splitted)
+                       (str/split #"\.")
+                       ((fn [spl] (if (> (count spl) 1) 
+                                  (conj (vec (map #(str % ".") (drop-last spl))) (last spl))
+                                  spl))))
+                     splitted)]
+      {:firstnames (-> (str/join " " (drop-last splitted))
+                     (str/replace  #"\. " "."))   ;; after initials/dot no space
        :infix   ""
        :lastnames (last splitted)})
     ))
@@ -50,7 +58,7 @@
   (debug "(add-initials-abbrev): processing record: " rec)
   (let [initials (if (seq (:firstnames rec)) 
                    (-> (:firstnames rec)
-                   (str/split #"\s+" )
+                   (str/split #"[.\s+]" )
                    ((partial map #(str/upper-case (first %)))))
                    ())
         inf   (if (seq (:infix rec))
