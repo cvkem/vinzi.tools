@@ -97,15 +97,22 @@
  this function is applied, otherwise the current directory is prefixed."
   [csvFile]
 ;;  (println "current namespace = " *ns*)
-  (let [globExtPath (resolve 'extend-path)]
+  (let [lpf "(extend-csv-path): "
+        globExtPath (resolve 'extend-path)]
 ;;    (println "extend-path resolved to : " globExtPath "which is fn? :" (fn? globExtPath))
 ;;    (if (fn? globExtPath)
     ;; previous line does not work as globExtPath is not recognised as a function.
     (if (and globExtPath (bound? globExtPath))
-      (eval (list globExtPath csvFile))
+      (let [extPath (eval (list globExtPath csvFile))]
+        (debug lpf "extended path with extend-path function: " globExtPath " resulting in: " extPath)
+        extPath)
       (if (vFile/full-path? csvFile)
-        csvFile
-        (vFile/filename (vFile/get-current-dir) csvFile)))))
+        (do
+          (debug lpf "csv-file is full path already: " csvFile)
+          csvFile)
+        (let [extPath (vFile/filename (vFile/get-current-dir) csvFile)]
+          (debug lpf "extending path with current-dir to: " extPath)
+          extPath)))))
 
 
   
