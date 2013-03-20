@@ -480,7 +480,7 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn map-table-to-hashmap 
-  "Take two columns of a table and transform them to a hash-map (each row becoming a separate map-entry).
+  "Take two columns of a table and transform them to a hash-map/lookup-table (each row becoming a separate map-entry).
    The key is based on 'keyCol' and the value is taken from 'valCol'."
   [schema tblNme keyCol valCol]
   ;; Can be used to map a knot-table to a hash-map to allow for convenient
