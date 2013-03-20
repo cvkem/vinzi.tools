@@ -662,6 +662,17 @@ All queries are LEFT JOIN-ed on the primary key of the target-table.
   `(sql/with-connection defaultDb (~func))) 
 
 
+(defn full-row-transformer 
+  "For this table generate a function that extracts all rows in sequence from a record.
+   The sql/inser-record function does not work when the columnnames contain dashes or dots (when they represent names of persons)"
+  [schema table]
+  (let [lbls (->> (get-col-info schema table)
+               (sort-by :ordinal_position)
+               (map :column_name )
+               (map keyword))]
+    (fn [rec]
+      (map rec lbls))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  An SQL sort-order DIFFERS from the java-compare sort order on special characters/
 ;;  The function below creates a tables with 200 one-character strings and shows the
