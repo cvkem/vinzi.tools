@@ -73,12 +73,17 @@
                true))))))
 
 ;; TODO: see whether these convertors should be combined with convertors from vinzi.anchorModel.extractModel.convertors and vinzi.eis.scipio.extractModel
+;;  currently only used in csv an olap4Clj
+;;  Should be merged with vString/convert-type-params, which looks like a cleaner implementation. However, this version is more
+;;  efficient as it does key-word type mapping once
+;;   cleansing of types (done in get-convertor) is not performed by vString/convert-type-params
 (defn get-map-str-convertor 
   "Takes a map where values are the destination types and returns a function that 
   takes a map containing strings as values returns a new map with the string-values 
   converted to the types defined in type-map.
    (type-map should contains types as returned by sql (meta-data))." 
-  [typeMap]
+  ([typeMap] (get-map-str-convertor typeMap false))
+  ([typeMap keepKeys]
   {:pre [(map? typeMap)]}
   (letfn [(get-convertor [tp]
                          (let [tp (if (string? tp)
@@ -101,7 +106,9 @@
                            ("double precision" "double" "real" :real :double) 
                                (fn [x] (if-let [x (and x (str/trim x))]
                                          (if (seq x)
-                                           (Double/parseDouble (str/trim x))
+                                           ;; second str/trim not needed
+                                           ;; shouldn't we pass nil stead of NaN?
+                                           (if (re-find #"(?i)null|n/a" x) Double/NaN (Double/parseDouble (str/trim x)))
                                            Double/NaN)   ;; empty string translates to NaN
                                          Double/NaN))    ;; nil translates to NaN
                            (:string :text "string" "text" "varchar" "character varying")
@@ -118,7 +125,8 @@
          (let [convertors (map (fn[[k v]] (vector k (get-convertor v))) (seq typeMap))]
            ;;(pprint convertors)
            (fn [m]
-             (into {} (map (fn [[k conv]] [ k (conv (get m k))]) convertors))))))
+             (let [initial (if keepKeys m {})]
+               (into initial (map (fn [[k conv]] [ k (conv (get m k))]) convertors))))))))
 
 
 ;; Usually (small) maps have sorted keys when created in one go. However, sometimes this order gets lost

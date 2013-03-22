@@ -56,3 +56,12 @@
     (let [x (vString/convert-type-params {:a "NaN"} {:a :double})]
       (is (and (= (type (:a x)) Double) (= (str (:a x) "NaN"))))
        ))
+
+
+(deftest map-nl-to-doubleStr 
+  (are [nlStr dStr] (= (vString/map-nl-to-doubleStr nlStr) dStr)
+       "123" "123"
+       "   123" "123"
+       "123 "  "123"
+       "1,23"  "1.23"
+       " 1.123,45" "1123.45"))

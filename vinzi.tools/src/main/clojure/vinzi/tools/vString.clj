@@ -63,7 +63,10 @@
 ;;       (special cases such as null, and NaN values handled too)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
+;; TODO:  merge code with vmap/get-map-str-convertor
+;;   1. use this code for the convertors and vMap for the structure
+;;   2. take the type-cleansing from vMap
+;;   3. make separate convertors and use these for the anchor-model extractors too.
 (defn convert-type-params 
   "For all parameters defined in the type-map convert their type to the corresponding type.  
    If no type is defined the parameters are assumed to be string-parameters (not checked)."
@@ -72,38 +75,41 @@
         convert-int  (fn [x]
                        (when x
                          (let [x (str/trim x)]
-                           (when (not (re-find #"(?i)null" x))   ;; null will be mapped to a nil-value
+                           (when (not (re-find #"(?i)null|n/a" x))   ;; null will be mapped to a nil-value
                              (Long/parseLong x)))))
         convert-double (fn [x]
                          (when x
                            (let [x (str/trim x)]
-                             (when (not (re-find #"(?i)null" x))   ;; null will be mapped to a nil-value
+                             (when (not (re-find #"(?i)null|n/a" x))   ;; null will be mapped to a nil-value
                                (if (re-find #"(?i)nan" x)
                                  Double/NaN
                                  (Double/parseDouble x))))))
         convert-date  (fn [x]
                          (when x
                            (let [x (str/trim x)]
-                             (when (not (re-find #"(?i)null" x))   ;; null will be mapped to a nil-value
+                             (when (not (re-find #"(?i)null|n/a" x))   ;; null will be mapped to a nil-value
                                (vDate/convert-to-date x)))))
         convert-timestamp  (fn [x]
                              (when x
                                (let [x (str/trim x)]
-                                 (when (not (re-find #"(?i)null" x))   ;; null will be mapped to a nil-value
+                                 (when (not (re-find #"(?i)null|n/a" x))   ;; null will be mapped to a nil-value
                                    (vDate/convert-to-timestamp x)))))
+        true-values  #{"TRUE" "T" "YES" "Y" "J"}
+        false-values #{"FALSE" "F" "NO" "N" "NEE"}
         convert-boolean  (fn [x]
                              (when x
                                (let [x (str/upper-case (str/trim x))]
-                                 (if (= x "TRUE")
+                                 (if (true-values x)
                                    true
-                                   (if (= x "FALSE")
+                                   (if (false-values x)
                                      false
-                                     (vExcept/throw-except lpf "Boolean should either be TRUE or FALSE. Received value: " x))))))
+                                     (vExcept/throw-except lpf "Boolean should either be " 
+                                                           true-values " or " false-values ". Received value: " x))))))
         convert-type (fn [cumm [k tp]]
                        (if-let [value (get cumm k)]
-                         (let [converted (case tp 
+                         (let [converted (case (keyword tp) 
                                            (:int :integer :long) (convert-int value)
-                                           (:double :real) (convert-double value)
+                                           (:double :real (keyword "double precision")) (convert-double value)
                                            :date (convert-date value)
                                            :timestamp (convert-timestamp value)
                                            :boolean   (convert-boolean value)
@@ -114,3 +120,14 @@
                          cumm))]
   (reduce convert-type pars typeMap)))
 
+
+
+
+
+(defn map-nl-to-doubleStr 
+  "Map a string in nl-locale to a normal floating point format."
+  [d]
+  (-> d
+    (str/trim)
+    (str/replace #"\." "")   ;; haal . voor duizendtallen weg
+    (str/replace #"," ".")))  ;; vervang , door . 

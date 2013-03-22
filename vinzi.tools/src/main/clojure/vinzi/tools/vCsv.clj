@@ -246,7 +246,7 @@
 (defn read-csv
   "Non-lazy read csv based on params-map.
    Required key is :csvFile. Allowed keys are :quote :separator :lowCaseKey :columnMap and :keepAllColumns.
-   The processFunc is applied to the full-sequence of hash-maps that is produced (followed by doall, so it's not lazy.
+   The processFunc is applied to the full-sequence of hash-maps that is produced (followed by doall, so it's not lazy).
    A columnMap consist of key-value pairs where the key is the column-name in the csv-file and the value is the name in the target-map.
    (both keywords and strings are allowed) set keepAllColumns to false to limit the number of colums.
    (Returns a non-lazy sequence of hash-maps)."
