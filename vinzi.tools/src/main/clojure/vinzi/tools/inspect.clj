@@ -1,6 +1,8 @@
-(ns vinzi.tools.inspect)
+(ns vinzi.tools.inspect
+  (:require [clojure [string :as str]])
+  (:refer-clojure))
 
-(refer-clojure)
+;;(refer-clojure)
 
 (defn find-symbol-in-ns [ns regExp]
   (filter #(re-find regExp (str (second %))) (ns-map (if (string? ns) (symbol ns) ns))))
@@ -32,3 +34,22 @@
 	_ (println " the fieldame = " fieldName)
 	fieldSymbol (symbol fieldName)]
     `(. ~obj ~fieldSymbol)))
+
+
+
+(defn get-members 
+  "Inspect an object and print formated output"
+  [x] 
+     (let [pt (fn [x] (case (str (class x))
+                        "class clojure.reflect.Method"  "METHOD"
+                        "class clojure.reflect.Field"   "FIELD"
+                        "class clojure.reflect.Constructor" "CONSTR"
+                        (type x)))
+           pa (fn [x] (case (str (class x))
+                        "class clojure.reflect.Method"  (str (:parameter-types x))
+                        "class clojure.reflect.Field"   ""
+                        "class clojure.reflect.Constructor" ""
+                        (type x)))]
+     (println "Object of type: " (type x)  " has members: ")
+     (print (str/join "\n" (map #(str (pt %) "\t " (:name %) "\t" (pa %) ) (:members (reflect x)))))))
+
