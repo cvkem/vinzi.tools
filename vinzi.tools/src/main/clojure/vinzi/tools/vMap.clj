@@ -7,7 +7,14 @@
               [vDateTime :as vDate]]))
 
 (defn get-map-comparator 
-  "Returns a comparator that allows maps to be compared on a predefined set of keys, to extract value-seqs from the map, and to compare mmaps to a values. The relevant keys are determined by cmpFlds." 
+  "Returns a comparator that allows maps to be compared on a predefined set of keys. The returned object contains:
+      - (get-fields [rec]): to extract value-seqs from the map, 
+      - (compare-fields [rec values] : check map 'rec' against a sequence of values (ordered in correspondence with 'cmpFlds') 
+      - (compare-maps rec1 rec2):  returns boolean
+      - (map-comparators rec1 rec2): returns a map-comparator that can be used for sorting (returns -1, 0 or 1 instead of boolean) 
+    The relevant keys are determined by cmpFlds." 
+  ;; TODO: simplify this as function is way too complex
+  ;;  (
   [cmpFlds]
   (letfn [(get-fields
             ;; get all specified fields as a (lazy) sequence of values.
@@ -26,8 +33,11 @@
             (compare-maps
             ;; compare two maps on their 'cmpFlds' only (returns boolean)
             [rec1 rec2]
+            ;; should be equivalent to
+            ;;  (= (select-keys rec1 cmpFlds) (select-keys rec2 cmpFlds))
             (compare-fields rec1 (get-fields rec2)))
             (map-comparator 
+              ;; this is a comparator which means that it returns -1, 0 or 1  (compare-maps returns a boolean)
               [rec1 rec2]
               (loop [rv1 (get-fields rec1)
                     rv2 (get-fields rec2)]
@@ -46,6 +56,7 @@
           :compare-fields compare-fields
           :compare-maps   compare-maps
           :map-comparator map-comparator} ))
+
 
 
 (defn compare-map-arrays 
@@ -148,10 +159,43 @@
 (defn map-compare [x y]
      (let [srt-map #(apply sorted-map (apply concat (seq %)))]
        (= (srt-map x) (srt-map y))))
+  
 ;=> (map-compare {:a 1 :b 2} {:b 2 :a 1})
 ;true
 ;=> (= {:a 1 :b 2} {:b 2 :a 1})
 ;true
+
+;; not needed?
+(def a (reduce conj {} (map #(vector (keyword (str "lbl_" %)) %) (range 100))))
+(def b (assoc (reduce conj {} (map #(vector (keyword (str "lbl_" %)) %) (reverse (range 100))))
+              :lbl_82 82))
+(= a b)
+true
+
+;Code of mapEquals suggests that size map-comparison does the key-lookup
+;https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/APersistentMap.java
+;		static public boolean mapEquals(IPersistentMap m1, Object obj){
+;		if(m1 == obj) return true;
+;		if(!(obj instanceof Map))
+;		return false;
+;		Map m = (Map) obj;
+;		
+;		if(m.size() != m1.count())
+;		return false;
+;		
+;		for(ISeq s = m1.seq(); s != null; s = s.next())
+;		{
+;		Map.Entry e = (Map.Entry) s.first();
+;		boolean found = m.containsKey(e.getKey());
+;		
+;		if(!found || !Util.equals(e.getValue(), m.get(e.getKey())))
+;		return false;
+;		}
+;		
+;		return true;
+;		}
+
+
 
 )  ;; end map-compare 
 

@@ -1,6 +1,9 @@
 (ns vinzi.tools.inspect
-  (:require [clojure [string :as str]])
-  (:refer-clojure))
+  (:require [clojure 
+             [string :as str]
+             [reflect :as refl]])
+ ;; (:refer-clojure)
+  )
 
 ;;(refer-clojure)
 
@@ -51,5 +54,5 @@
                         "class clojure.reflect.Constructor" ""
                         (type x)))]
      (println "Object of type: " (type x)  " has members: ")
-     (print (str/join "\n" (map #(str (pt %) "\t " (:name %) "\t" (pa %) ) (:members (reflect x)))))))
+     (print (str/join "\n" (map #(str (pt %) "\t " (:name %) "\t" (pa %) ) (:members (refl/reflect x)))))))
 
