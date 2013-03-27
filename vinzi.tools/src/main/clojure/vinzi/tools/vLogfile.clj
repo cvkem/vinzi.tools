@@ -8,8 +8,7 @@
   	     [clojure.java
   	      [io :as io]])
   (:import [java.io     File   BufferedReader FileInputStream FileOutputStream
-	    BufferedInputStream])
-  (:gen-class))
+	    BufferedInputStream]))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;
