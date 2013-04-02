@@ -37,8 +37,8 @@
                            (println prefix)) ;; file-info (duplic?)
                                      (throw e)))))]  ;; re-throw same exception
                 (let [xml  (read-xml fName)]
-                  (when (fn? xml-init)
-                    (xml-init fName xml))
+ ;;                 (when (fn? xml-init)
+ ;;                   (xml-init fName xml))
                   xml)))
             (get-xml-file 
               ;; Try to read the config-file from the request from the internal cache. If it is not available read it from disc and cache it.
@@ -58,7 +58,16 @@
                       (trace "Loaded a new configuration from file: " fName
                              ;;                  "\nContents: " (with-out-str (pprint cfg))
                              "\nAdding contents to the internal xml-cache.")
-                      (swap! xmlFileCache (fn [cc] (assoc cc keyfName cfg)))
+                      (try
+                        (swap! xmlFileCache assoc keyfName cfg)
+                        ;; run initialization after adding it to cache, as initialization code might assume
+                        ;; that the file exist (example global section of cdp might execute functions from its implementation)
+                        (when (fn? xml-init)
+                          (xml-init fName cfg))
+                        (catch Throwable e
+                          ;; exception during initialization, so remove it and rethrow
+                          (swap! xmlFileCache dissoc keyfName)
+                          (throw e)))
                       cfg)
                     (error lpf "Could not read " fName " (no valid xml?)")))))
             (list-xml-file-entries []
