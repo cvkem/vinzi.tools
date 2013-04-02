@@ -118,6 +118,18 @@
 
 
 
+(defn drop-file 
+  "Drop a file if it exists."
+  [nme] 
+  (let [f (java.io.File. nme)]
+    (if (and (.exists f) (.isFile f))
+      (do
+        (println "REMOVE file: "nme)
+        (.delete f))
+      (error "Could not find file:  " nme))))
+
+
+
 (defn ensure-dir-exists 
   "Ensure that the directory specified in 'fName' exists (including all preceding directories). 
    If fName is a directory that needs to be created you should a a terminating file-separator (/).
@@ -139,31 +151,52 @@
       (.mkdirs d)))))
 
 
+(defn drop-folder 
+  "Drop folder, by first dropping it's contents."
+  ([folder] drop-folder true)
+  ([folder dropFolder]
+  {:pre [(string? folder) (= (type dropFolder) java.lang.Boolean)]}
+  ;; check existence first?
+  (doseq [f (-> folder
+              (java.io.File. )
+              (file-seq )
+              (#(if dropFolder % (rest %)))
+              (reverse ))]
+    (.delete f))))
 
-(defn remove-contents-dir "Remove all contents of directory 'dName'. If a directory contains sub-directories, then a recursive deletion of all files of the sub-directory needs to be applied, as the Java File object does not allow you to delecte non-empty directories.
-The directory denoted by 'dName' will empty, but will not be deleted."
-  [dName]
-           ;;  (A more idiomatic apprach uses the file-seq function, that
-           ;;   returns a sequence of files and directories. However,
-           ;;   reverse sequence such that file are removed before dirs)
-  (letfn [(rm-contents-dir
-           [d]
-           ;;  remove alle files and directories in 'd'.
-           (trace "(remove-contents-dir) directory: " (.getAbsolutePath d))
-           (let [fList (.listFiles d)]
-             (doseq [f fList]
-               ;; (trace "removing file or directory " (.getName f))
-                  (when (.isDirectory f)
-                    (rm-contents-dir f))
-                  (.delete f)
-                  )))]
-    (debug "(remove-contents-dir) Recursively remove all contents of: "
-           dName "(possibly relative path)")
-    (let [d (io/file dName)]
-      (if (and (.exists d) (.isDirectory d))
-        (rm-contents-dir d)
-        (debug "(remove-contents-dir): " dName
-               " is not a directory or does not exist. No action")))))
+
+(defn drop-folder-contents 
+  "Drop all contents of the folder, leaving the folder empty."
+  [folder]
+  {:pre [(string? folder)]}
+  (drop-folder folder false))
+
+
+;; replaced by drop-folder-contents
+;(defn remove-contents-dir "Remove all contents of directory 'dName'. If a directory contains sub-directories, then a recursive deletion of all files of the sub-directory needs to be applied, as the Java File object does not allow you to delecte non-empty directories.
+;The directory denoted by 'dName' will empty, but will not be deleted."
+;  [dName]
+;           ;;  (A more idiomatic apprach uses the file-seq function, that
+;           ;;   returns a sequence of files and directories. However,
+;           ;;   reverse sequence such that file are removed before dirs)
+;  (letfn [(rm-contents-dir
+;           [d]
+;           ;;  remove alle files and directories in 'd'.
+;           (trace "(remove-contents-dir) directory: " (.getAbsolutePath d))
+;           (let [fList (.listFiles d)]
+;             (doseq [f fList]
+;               ;; (trace "removing file or directory " (.getName f))
+;                  (when (.isDirectory f)
+;                    (rm-contents-dir f))
+;                  (.delete f)
+;                  )))]
+;    (debug "(remove-contents-dir) Recursively remove all contents of: "
+;           dName "(possibly relative path)")
+;    (let [d (io/file dName)]
+;      (if (and (.exists d) (.isDirectory d))
+;        (rm-contents-dir d)
+;        (debug "(remove-contents-dir): " dName
+;               " is not a directory or does not exist. No action")))))
 
 
 
