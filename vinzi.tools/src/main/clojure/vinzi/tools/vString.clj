@@ -125,9 +125,27 @@
 
 
 (defn map-nl-to-doubleStr 
-  "Map a string in nl-locale to a normal floating point format."
+  "Map a string in nl-locale to a normal floating point format string (US-format)."
   [d]
   (-> d
     (str/trim)
     (str/replace #"\." "")   ;; haal . voor duizendtallen weg
-    (str/replace #"," ".")))  ;; vervang , door . 
+    (str/replace #"," ".")))  ;; vervang , door .
+
+
+(defn sort-seq-alphabetical
+  "Sort a sequence such that A < a < B < b. Default ordering is A<B<a<b.
+   Keywords and strings can be interleaved."
+  [sortSeq]
+  (->> sortSeq
+    (map (fn [x] (let [vx (if (keyword x) (name x) (str x))]
+                   [(->> vx
+                    (str/upper-case)
+                    (#(interleave % vx)) 
+                    (apply str)) x])) )
+    (#(do (doseq [y %] (println y)) %))
+    (sort-by first )
+    (map second) ))
+
+
+

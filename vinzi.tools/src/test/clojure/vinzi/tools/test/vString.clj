@@ -65,3 +65,12 @@
        "123 "  "123"
        "1,23"  "1.23"
        " 1.123,45" "1123.45"))
+
+(deftest sort-alphabetically
+  (are [inp res] (= (vString/sort-seq-alphabetical inp) res)
+       '(:A :B :b :a ) '(:A :a :B :b)
+       '("A" :B :b :a ) '("A" :a :B :b)
+       '(:A :B :b :a 1) '(1 :A :a :B :b )
+       '(:A :B nil :b :a 1) '(nil 1 :A :a :B :b )
+       ))
+

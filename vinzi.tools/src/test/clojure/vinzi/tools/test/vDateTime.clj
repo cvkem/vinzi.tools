@@ -6,6 +6,18 @@
      [vDateTime :as vDate]]))
 
 
+(deftest make-sql-date
+  (is (= (.toString (vDate/make-sql-date 2011 1 1)) "2011-01-01"))
+  ;; on the repl this string returns
+;	=> (def d (vDate/make-sql-date 2011 1 1))
+;	#'vinzi.tools.test.vDateTime/d
+;	=> (.toString d)
+;	"2011-01-01"
+;	=> d
+;	#inst "2010-12-31T23:00:00.000-00:00"
+  ;; so it looks like a 2010 date instead of 2011. Probably the repl time is GMT.
+
+  )
 
 (deftest vDate-sql-date
   (let [sd (vDate/make-sql-date 2012 1 2    1 2 3)
@@ -29,6 +41,7 @@
       (is (= sd (vDate/convert-to-date shortStr)))
       (is (= ts (vDate/convert-to-timestamp shortStr)))
     )))
+
 
 
 (deftest vDate-day-of-week
