@@ -115,7 +115,9 @@
 ;;  Generate database connection records and db-key
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn db-key "Translate a fieldname to a string that retrieves the field from the jdbc hashmaps." [x]
+(defn db-key "Translate a fieldname to a string that retrieves the field from the jdbc hashmaps." 
+  [x]
+  {:pre [(string? x)]}   ;; do not pass in keywords otherwise the :: will be duplicated as lower-case returns ":xyz" for keyword :XYz
   (keyword (str/lower-case x)))
 
 

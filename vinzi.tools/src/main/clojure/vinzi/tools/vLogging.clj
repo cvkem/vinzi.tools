@@ -138,6 +138,11 @@
           (ctl/warn fullMsg)
           (ctl/error fullMsg))))))
 
+(defn ddebug 
+  "This function outputs directly to the log-file, and does not wait for an error of warning to emit its message."
+  [& args]
+  (let [fullMsg (apply str args)]
+    (ctl/debug fullMsg)))
 
 (defmacro warn
   "Print the full logTrace to the log-file with args as a prefix-message at warn-level."
