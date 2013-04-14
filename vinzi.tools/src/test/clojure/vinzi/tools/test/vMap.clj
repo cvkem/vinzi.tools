@@ -76,7 +76,7 @@
          )))
 
 
-(deftest test-map-str-convertor
+(deftest test-map-type-convertor
   (println "testing the get-map-type-convertor")
   (are [tp val res]
        (let [mc (vMap/get-map-type-convertor {:a tp})]
@@ -104,5 +104,11 @@
     (is (= (map (mc {:i " 1" :d "1.0" :s "abc"}) [:i :d :s]) '(1 1.0 "abc"))
         "Comparing with multiple keys failed."))
   )
+
+(deftest test-keywordize
+  (let [inp {"Test" 1 :KEYW 2}]
+    (is (= (vMap/keywordize inp) {:Test 1 :KEYW 2}))
+    (is (= (vMap/keywordize inp true) {:test 1 :keyw 2}))))
+
 
 

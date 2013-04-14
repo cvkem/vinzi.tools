@@ -83,6 +83,19 @@
                  false)
                true))))))
 
+
+(defn keywordize 
+  "Keywordize the keys of a map."
+  ([m] (keywordize m false)) 
+  ([m toLower]
+    {:pre [(and (or (map? m) (isa? (class m) java.util.Properties)) 
+                (isa? (class true) java.lang.Boolean))]}
+    (let [transform (if toLower 
+                      (comp keyword str/lower-case name)
+                      keyword)]
+    (zipmap (map transform (keys m))
+            (vals m)))))
+
 ;; TODO: see whether these convertors should be combined with convertors from vinzi.anchorModel.extractModel.convertors and vinzi.eis.scipio.extractModel
 ;;  currently only used in csv an olap4Clj
 ;;  Should be merged with vString/convert-type-params, which looks like a cleaner implementation. However, this version is more
