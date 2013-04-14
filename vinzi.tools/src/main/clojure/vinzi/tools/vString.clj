@@ -63,7 +63,7 @@
 ;;       (special cases such as null, and NaN values handled too)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; TODO:  merge code with vmap/get-map-str-convertor
+;; TODO:  merge code with vmap/get-map-type-convertor
 ;;   1. use this code for the convertors and vMap for the structure
 ;;   2. take the type-cleansing from vMap
 ;;   3. make separate convertors and use these for the anchor-model extractors too.

@@ -292,7 +292,7 @@
               colInfo (zipmap (map #(keyword (:column_name %)) colInfo)
                               (map :data_type colInfo))
               _  (info lpf " The column-information is (TEMP): " colInfo)
-              mapConv (vMap/get-map-str-convertor colInfo)
+              mapConv (vMap/get-map-type-convertor colInfo)
               processFunc (fn [data]   ;; will be called within scope of read-csv-lazy
                             (if (seq data)
                               (let [firstRec (first data)

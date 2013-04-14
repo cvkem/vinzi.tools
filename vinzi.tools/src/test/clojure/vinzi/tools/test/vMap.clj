@@ -77,11 +77,11 @@
 
 
 (deftest test-map-str-convertor
-  (println "testing the get-map-str-convertor")
+  (println "testing the get-map-type-convertor")
   (are [tp val res]
-       (let [mc (vMap/get-map-str-convertor {:a tp})]
+       (let [mc (vMap/get-map-type-convertor {:a tp})]
          (= (:a (mc {:a val})) res))
-;         (= (:a ((vMap/get-map-str-convertor {:a tp}) {:a val})) 1)
+;         (= (:a ((vMap/get-map-type-convertor {:a tp}) {:a val})) 1)
        "integer"   "1"    1
        "integer"   " 1"   1
        "double"    "1.0"  1.0
@@ -100,7 +100,7 @@
        :boolean      "F"       false
        :double       "2.3" 2.3)
   
-  (let [mc (vMap/get-map-str-convertor {:i "integer" :d :double :s "text"})]
+  (let [mc (vMap/get-map-type-convertor {:i "integer" :d :double :s "text"})]
     (is (= (map (mc {:i " 1" :d "1.0" :s "abc"}) [:i :d :s]) '(1 1.0 "abc"))
         "Comparing with multiple keys failed."))
   )

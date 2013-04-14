@@ -88,12 +88,12 @@
 ;;  Should be merged with vString/convert-type-params, which looks like a cleaner implementation. However, this version is more
 ;;  efficient as it does key-word type mapping once
 ;;   cleansing of types (done in get-convertor) is not performed by vString/convert-type-params
-(defn get-map-str-convertor 
+(defn get-map-type-convertor 
   "Takes a map where values are the destination types and returns a function that 
   takes a map containing strings as values returns a new map with the string-values 
   converted to the types defined in type-map.
    (type-map should contains types as returned by sql (meta-data))." 
-  ([typeMap] (get-map-str-convertor typeMap false))
+  ([typeMap] (get-map-type-convertor typeMap false))
   ([typeMap keepKeys]
   {:pre [(map? typeMap)]}
   (letfn [(get-convertor [tp]
@@ -103,18 +103,24 @@
                                         :string
                                         (if (.startsWith tp "timestamp")
                                           :timestamp
-                                          tp)))
+                                          (keyword tp))))
                                     (if (keyword? tp)
-                                      tp
-                                      (throw (Exception. (str "Obtained type " tp " which is not a string or keyword")))))]
+                                      tp   ;; TODO: change keyword to lower-case
+                                      (throw (Exception. (str "Obtained type " tp " which is not a string or keyword")))))
+                               ;; case-statement can not handle keywords containing spaces, so translate them
+                               tp (if (= tp (keyword "character varying"))
+                                    :string 
+                                    (if (= tp (keyword "double precision"))
+                                      :double
+                                      tp))]
                          (case tp
-                           ("integer" :int) 
+                           (:integer :int) 
                                (fn [x] (if-let [x (and x (str/trim x))]
                                          (if (seq x)   ;; prevent nil string from being processed
                                            (Integer/parseInt x)
                                            0)    ;; default value is 0  (no NaN availabel)
                                          0))
-                           ("double precision" "double" "real" :real :double) 
+                           (:real :double) 
                                (fn [x] (if-let [x (and x (str/trim x))]
                                          (if (seq x)
                                            ;; second str/trim not needed
@@ -122,21 +128,25 @@
                                            (if (re-find #"(?i)null|n/a" x) Double/NaN (Double/parseDouble (str/trim x)))
                                            Double/NaN)   ;; empty string translates to NaN
                                          Double/NaN))    ;; nil translates to NaN
-                           (:string :text "string" "text" "varchar" "character varying")
+                           (:string :text)
                                (fn [x] x)
-                           (:date "date")  
+                           (:date )  
                                vDate/convert-to-date
-                           (:timestamp "timestamp") 
+                           (:timestamp ) 
                                vDate/convert-to-timestamp
-                           (:boolean "boolean") (fn [x] (case (str/lower-case (str/trim x))
+                           (:boolean :bool) (fn [x] (case (str/lower-case (str/trim x))
                                                           ("t" "true") true
                                                           ("f" "false") false
-                                                          (throw (Exception. (str "(vMap/get-map-str-convertor): Can not map value: " x " to a boolean")))))
+                                                          (throw (Exception. (str "(vMap/get-map-type-convertor): Can not map value: " x " to a boolean")))))
                            (throw (Exception. (str "Unknown type: " tp))))))]
          (let [convertors (map (fn[[k v]] (vector k (get-convertor v))) (seq typeMap))]
            ;;(pprint convertors)
            (fn [m]
-             (let [initial (if keepKeys m {})]
+             (let [initial (if keepKeys 
+                             (if (= (type m) java.util.Properties)
+                               (into {} m)   ;; translate java.util.Properities to clojure.lang.PersistentArrayMap
+                               m)
+                             {})]
                (into initial (map (fn [[k conv]] [ k (conv (get m k))]) convertors))))))))
 
 
