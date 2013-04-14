@@ -2,11 +2,12 @@
   (:use [clojure.tools logging]
 	clojure.pprint)
   (:require  [clojure
-	      [stacktrace :as st]
-  	      [string :as str :only [lowercase replace replace-re trim]]
-	      ]
-  	     [clojure.java
-  	      [io :as io]])
+              [stacktrace :as st]
+              [string :as str :only [lowercase replace replace-re trim]]]
+             [clojure.java
+              [io :as io]]
+             [vinzi.tools 
+              [vFile :as vFile]])
   (:import [java.io     File   BufferedReader FileInputStream FileOutputStream
 	    BufferedInputStream]))
 
@@ -29,8 +30,22 @@
   ([fName showLevels warnKill]
     (println "enter log-tracker-3")
     (let [showLevels (if (string? showLevels) (list showLevels) showLevels)
+          lpf "(log-tracker): "
           showLevels (set (map keyword showLevels))
-          file (File. fName)
+          org-fName fName
+          fName (let [rw (vFile/file-exists fName)]
+                     (if (or (not rw)            ;; file does not exists or not folder access
+                             (not (:write rw)))  ;; no write permission
+                       (let [newName (vFile/get-filename fName)
+                             msg (str lpf "Logfile: " fName "does not exists, trying " newName " in current folder")]  
+                         (debug msg) 
+                         ;; we could test whether the log-file is updated by the statement above.
+                         (println msg)
+                         newName)  ;; try current folder 
+                       fName))
+          ;; logback writes to currentfolder if designated folder is not writeable.
+          file (-> fName
+                 (File.))
           sleepMs 100
           {:keys [warnMinutes warnMessage killMinutes killMessage]} warnKill
           warnIter (when warnMinutes (long (* (/ 60000 sleepMs) warnMinutes)))
@@ -39,7 +54,7 @@
           killCnt (atom 0)
           ]
       (if (not (.exists file))
-        (let [msg (str "The logfile with name " fName " does not exists (yet).\n"
+        (let [msg (str "The logfile with name " (.getCanonicalPath file) " does not exists (yet).\n"
                        "add log-statement to force opening of the file "
                        "before calling the 'log-tracker' closure.")]
           (println msg)
