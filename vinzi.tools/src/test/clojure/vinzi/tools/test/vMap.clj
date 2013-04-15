@@ -98,6 +98,8 @@
        :boolean      "T"       true
        "boolean"      "f"       false
        :boolean      "F"       false
+       :keyword      "test"    :test
+       :keyword      "5"       :5
        :double       "2.3" 2.3)
   
   (let [mc (vMap/get-map-type-convertor {:i "integer" :d :double :s "text"})]

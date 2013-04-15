@@ -143,6 +143,8 @@
                                          Double/NaN))    ;; nil translates to NaN
                            (:string :text)
                                (fn [x] x)
+                           (:keyword)
+                               (fn [x] (keyword (str x)))
                            (:date )  
                                vDate/convert-to-date
                            (:timestamp ) 
