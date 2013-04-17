@@ -5,7 +5,9 @@
   (:require [clojure.data.csv :as csv]
             [clojure.java.io :as io]
             [clojure.java.jdbc :as sql]
-            [clojure.string :as str]
+            [clojure
+             [string :as str]
+             [set :as set]]
             [vinzi.tools
              [vFile :as vFile]
              [vMap :as vMap]
@@ -30,22 +32,22 @@
 ;;     (swap! readerParams (fn[_] seqPars))))
 
 (defn extract-readerParams
-  "Extract the readerParams and return a tuple with
-   [pars readerPars], where the readerPars are a sequence ad
+  "Extract the (file-)readerParams and return a tuple with
+   [pars readerPars], where the readerPars are a sequence and
    pars excludes the readerPars."
   [pars]
   (let [{:keys [readerParams]} pars
-	pars (dissoc pars :readerParams)
-	seqPars (reduce concat readerParams)
-	]
+        pars (dissoc pars :readerParams)
+        seqPars (reduce concat readerParams)
+        ]
     [pars seqPars]))
 
 (defn extract-readerParams-seq
   [opts]
   (let [kv (partition 2 opts)
-	partFunc #(= (first %) :readerParams)
-	readerParams (filter partFunc kv )
-	opts (reduce concat (remove partFunc kv))]
+        partFunc #(= (first %) :readerParams)
+        readerParams (filter partFunc kv )
+        opts (reduce concat (remove partFunc kv))]
     [opts (reduce concat readerParams)]))
 
 
@@ -202,12 +204,14 @@
    Required key is :csvFile. Allowed keys are :quote :separator :lowCaseKey :columnMap and :keepAllColumns.
    The processFunc is applied to the full-sequence of hash-maps that is produced (followed by doall, so it's not lazy.
    A columnMap consist of key-value pairs where the key is the column-name in the csv-file and the value is the name in the target-map.
-   (both keywords and strings are allowed) set keepAllColumns to false to limit the number of colums."
+   (both keywords and strings are allowed) set keepAllColumns to false to limit the number of colums.
+  When a param :checkKeys is provided it will be checked whether each record contains exactly these keys (nil values are allowed). It throws
+  an exception on failure."
   [params processFunc]
   (let [lpf (str "(read-csv " params ")")
-	[params readerParams] (extract-readerParams params)
+        [params readerParams] (extract-readerParams params)
         _ (debug lpf "with params: " (with-out-str (pprint params)))
-        {:keys [lowCaseKey columnMap keywordizeKeys]}  params
+        {:keys [lowCaseKey columnMap keywordizeKeys checkKeys]}  params
         keepAllColumns (if (some #{:keepAllColumns} (keys params))
                          (:keepAllColumns params)
                          true)   ;; if key does not exist default to true
@@ -231,12 +235,25 @@
           (let [showFirstThree (fn [recs msg] 
                                  (debug msg "(first 3): " (with-out-str (pprint (take 3 recs)))) 
                                  recs)
+                check-keys (if checkKeys
+                             (let [cks (set checkKeys)
+                                   lpf "(read-csv-lazy$check-keys): "]
+                               (println "INTroduCE CHECK-KEYS: " checkKeys)
+                               (fn [x] (map #(let [ks (set (keys %))]
+                                               (when (not= cks ks)
+                                                   (let [extra (set/difference ks cks)
+                                                         missing (set/difference cks ks)]
+                                                     (vExcept/throw-except lpf " Record " (when (seq missing) (str "is missing keys " (str/join "," missing)))
+                                                          (when (seq extra) (str " has extra keys " (str/join "," extra)))
+                                                          "\n\t rec=" %))) %) x)))
+                               identity)  ;; nothing to match against
                 csvMap (-> (apply csv/read-csv f csvOpts)
                          (showFirstThree "read-csv")
                          (csv-columnMap columnMap keepAllColumns keywordizeKeys)
                          (showFirstThree "csv-columnMap")
                          (csv-to-map lowCaseKey)
-                         (showFirstThree "csv-to-map"))]
+                         (showFirstThree "csv-to-map")
+                         (check-keys))]
             ;; csvMap is lazy but terminates when the scope of this (with-open is closed.
             ;;    (a template for a lazy-open that keeps a file open is given below)
             ;; Sept 2012, added a doall to enforce realization (lazyness should be within processfunc
