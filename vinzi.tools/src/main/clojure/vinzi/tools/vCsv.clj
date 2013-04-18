@@ -238,7 +238,7 @@
                 check-keys (if checkKeys
                              (let [cks (set checkKeys)
                                    lpf "(read-csv-lazy$check-keys): "]
-                               (println "INTroduCE CHECK-KEYS: " checkKeys)
+                               (debug lpf "Define check-keys function for: " checkKeys)
                                (fn [x] (map #(let [ks (set (keys %))]
                                                (when (not= cks ks)
                                                    (let [extra (set/difference ks cks)

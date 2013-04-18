@@ -52,6 +52,9 @@
     (seq (filter #(= lbl (str/lower-case %)) args))))
 
 
+;; TODO: command-line overrides args   which overrides all props and which issues a warning/error if an option does not exist.
+;;   (possibly ignoring options without an "=" sign)
+
 (defn commandline-override 
   "Check if parameter (name k) exists on commandline and if so overrides (keyword k) in props.
     The value is stored with the same type as the current value under that key in props.
