@@ -113,7 +113,7 @@
   (let [lpf "(dir-exists): "
         f  (io/file fName)]   ;; java.io.File. object does not need to be closed!
     (trace lpf "Check existence of directory: " fName)
-    (when-let [res (and f (.exists f) (.isFile f))]
+    (when-let [res (and f (.exists f) (.isDirectory f))]
       (rw-permissions f))))
 
 
@@ -128,6 +128,11 @@
         (.delete f))
       (error "Could not find file:  " nme))))
 
+(defn make-dir-path 
+  "Make sure path is interpreted as a directory by adding a terminating slash if it does not exist."
+  [path]
+  (let [path (str/trim path)]
+    (if (= (last path) FileSep) path (str path FileSep))))
 
 
 (defn ensure-dir-exists 
