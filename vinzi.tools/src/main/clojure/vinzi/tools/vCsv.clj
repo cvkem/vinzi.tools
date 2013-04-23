@@ -387,13 +387,23 @@
   ;; (["a" "b"] [1 2] [3 \c])
   )
 
+
+(defn write-csv-stream 
+  "Write a sequence of maps (as produced by vCsv/read-csv-map) to an open steam in csv-file format.
+   The keys of the first map-item will be used a keys for the full sequence."
+  [stream data & opts]
+  (let [data (map-seq-to-csv data)]
+    (apply csv/write-csv stream data opts)))
+
 (defn write-csv 
   "Write a sequence of maps (as produced by vCsv/read-csv-map) to a csv-file again.
    The keys of the first map-item will be used a keys for the full sequence."
   [fName data & opts]
   (with-open [out (io/writer fName)]
+    ;; TODO: use write-csv-stream instead of code below
     (let [data (map-seq-to-csv data)]
         (apply csv/write-csv out data opts))))
+
 
 (defn project-fill 
   "Similar to set/project, however, missing values are patched with nil.
