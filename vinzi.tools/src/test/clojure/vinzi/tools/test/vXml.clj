@@ -23,6 +23,8 @@
 
 (def resXml1 [:top-level {:A {} :B {}}])
 
+(def resXml1tagged [:top-level {:tag :top-level :A {:tag :sub} :B {:tag :sub}}])
+
 (def testXml2nameConflict "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
                <top-level>
                   <sub name=\"A\">
@@ -54,6 +56,7 @@
                                        :keyMap {:subsub {:idAttr :theKey}}}}}})
 
 (def resXml4 [:top-level {:A {:AA {}} :B {}}])
+(def resXml4tagged [:top-level {:tag :top-level :A {:tag :sub :AA {:tag :subsub}} :B {:tag :sub}}])
 
 
 (def testXml5 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -69,6 +72,7 @@
                                  :SUB {:idAttr :theName}}}})
 
 (def resXml5 [:top-level {:A {} :A2 {} :B {}}])
+(def resXml5tagged [:top-level {:tag :top-level :A {:tag :sub} :A2 {:tag :SUB} :B {:tag :sub}}])
 
 
 ;; one additional nested level 
@@ -91,11 +95,16 @@
                                        :keyMap {:subsub {:idAttr :theKey}}}}}})
 
 (def resXml6 [:top-level {:A {:AA {}} :A2 {:AA {}}:B {}}])
+(def resXml6tagged [:top-level {:tag :top-level :A {:tag :sub :AA {:tag :subsub}} :A2 {:tag :SUB2 :AA {:tag :subsub}}:B {:tag :sub}}])
 
 
 (deftest testxml
   (let [fName "/tmp/tstxml1.xml"]
     (spit fName testXml1)
+    
+    ;;  tests only for tagIt is false. Default is true
+    (vXml/set-tagIt false)
+    
     ;; from file
     (is (= (vXml/xml-file-to-hashmap fName keyMap1) resXml1))
     ;; from string
@@ -107,4 +116,19 @@
     (is (= (vXml/xml-str-to-hashmap testXml4 keyMap4) resXml4))
     (is (= (vXml/xml-str-to-hashmap testXml5 keyMap5) resXml5))
     (is (= (vXml/xml-str-to-hashmap testXml6 keyMap6) resXml6))
+    
+    ;; restore the default
+    (vXml/set-tagIt true)
+    ;; from file
+    (is (= (vXml/xml-file-to-hashmap fName keyMap1) resXml1tagged))
+    ;; from string
+    (is (= (vXml/xml-str-to-hashmap testXml1 keyMap1) resXml1tagged))
+    ;; involves a key-conflict (duplicate key or key vs existing attribute)
+    (is (thrown? Exception (vXml/xml-str-to-hashmap testXml2nameConflict keyMap1)))
+    (is (thrown? Exception (vXml/xml-str-to-hashmap testXml3attributeConflict keyMap1)))
+
+    (is (= (vXml/xml-str-to-hashmap testXml4 keyMap4) resXml4tagged))
+    (is (= (vXml/xml-str-to-hashmap testXml5 keyMap5) resXml5tagged))
+    (is (= (vXml/xml-str-to-hashmap testXml6 keyMap6) resXml6tagged))
+
     ))
