@@ -168,7 +168,20 @@
 ;;  (shortened version of vinzi.tools.sqlTools/table-exists, to prevent dependency)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn table-exists "Check wether a 'table' exists in 'schema' (using current db-connection)"
+
+(defn schema-exists 
+  "Check wether a schema exists (using current db-connection)"  
+  [schema]
+  (let [qry (str "SELECT count(*) AS cnt "
+		 " FROM information_schema.schemata "
+		 " WHERE schema_name = '" schema "';")]
+    (sql/with-query-results res [qry]
+      (assert (= (count res) 1))
+      (> (:cnt (first res)) 0))))
+
+
+(defn table-exists 
+  "Check wether a 'table' exists in 'schema' (using current db-connection)"
   ;; the alternative would be to inspect pg_tables (postgres specific)
   [schema table]
   (let [schema (strip-dQuotes schema)
@@ -179,6 +192,7 @@
                             true
                             false)]
               outcome))))
+
 
 (defn table-length 
   "Calculate the number of rows in a table (or view)"
