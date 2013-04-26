@@ -19,3 +19,10 @@
   [fName]
   (with-open [stream (java.io.PushbackReader. (java.io.FileReader. fName))]
     (edn/read stream)))
+
+
+(defn write-edn-file
+  [fName data]
+  (with-open [out (java.io.FileWriter. fName)]
+    (binding [*out*  out]
+      (prn data))))

@@ -20,3 +20,11 @@
          ["a=5"] {:a 4.0} {:a 5.0}
          ["a=-5.0"] {:a 4.0} {:a -5.0}
   ))
+
+
+(deftest commandline-overrides-all
+    (are [inp props expect] (= (vPar/commandline-override-all inp props) expect)
+         ["a=test"] {:b 1 :a :x} {:b 1 :a :test}
+         ["a=test" "b=2"] {:a "x" :b 1} {:b 2 :a "test"}
+         ["a=test" "b=2" "c=100"] {:a "x" :b 1 :c 0} {:b 2 :a "test" :c 100}
+  ))

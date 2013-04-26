@@ -7,7 +7,7 @@
              [set :as set]]
             [vinzi.tools [vExcept :as vExcept]]))
 
-(def validTagDescrKeys #{:keyMap :idAttr})
+(def validTagDescrKeys #{:keyMap :idAttr :keepId})
 
 (def ^:dynamic tagIt true)
 
@@ -37,12 +37,12 @@
           _  (when (and forceTagDef (nil? tagDescr))
                (vExcept/throw-except lpf "the tag: " tag " is not defined in xmlDef. Correct this, or set parameter forceTagDef to false."
                                      "\n\tCurrent xmlDef: " (with-out-str (pprint xmlDef))))
-          {:keys [idAttr keyMap]} tagDescr
+          {:keys [idAttr keyMap keepId]} tagDescr
 ;          _ (println "Parsing tag " tag " with tagDescr: " tagDescr)
           _ (when-let [unknownKeys (seq (set/difference (set (keys tagDescr)) validTagDescrKeys))]
               (vExcept/throw-except lpf "Keymap should only contain the keys: " validTagDescrKeys ", also observed keys: " unknownKeys))
           [nme attrs] (if idAttr 
-                        [(keyword (idAttr attrs)) (dissoc attrs idAttr)]
+                        [(keyword (idAttr attrs)) (if keepId attrs (dissoc attrs idAttr))]
                       [tag attrs])
           attrs (if (and tagIt (not (:tag attrs))) (assoc attrs :tag tag) attrs)   ;; adds :tag if it does not exist already in the record (unless it has value nil)
           _ (println  "\t using name "  nme (str (when idAttr (str " based on attribute " idAttr))))

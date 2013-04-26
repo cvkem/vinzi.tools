@@ -21,9 +21,16 @@
                        {:keyMap {:sub 
                                  {:idAttr :name}}}})
 
+(def keyMap1keepId  {:top-level 
+                       {:keyMap {:sub 
+                                 {:idAttr :name
+                                  :keepId true}}}})
+
 (def resXml1 [:top-level {:A {} :B {}}])
 
 (def resXml1tagged [:top-level {:tag :top-level :A {:tag :sub} :B {:tag :sub}}])
+
+(def resXml1keepId [:top-level {:A {:name "A"} :B {:name "B"}}])
 
 (def testXml2nameConflict "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
                <top-level>
@@ -116,6 +123,9 @@
     (is (= (vXml/xml-str-to-hashmap testXml4 keyMap4) resXml4))
     (is (= (vXml/xml-str-to-hashmap testXml5 keyMap5) resXml5))
     (is (= (vXml/xml-str-to-hashmap testXml6 keyMap6) resXml6))
+
+    ;;
+   (is (= (vXml/xml-file-to-hashmap fName keyMap1keepId) resXml1keepId))
     
     ;; restore the default
     (vXml/set-tagIt true)

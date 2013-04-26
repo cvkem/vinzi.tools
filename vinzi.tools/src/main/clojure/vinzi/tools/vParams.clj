@@ -56,10 +56,12 @@
 ;;   (possibly ignoring options without an "=" sign)
 
 (defn commandline-override 
-  "Check if parameter (name k) exists on commandline and if so overrides (keyword k) in props.
+  "Check if parameter (name k) exists in array of string args assuming each string represents a key=value.
+   If the key corresponding to (keyword k) exists in props.
     The value is stored with the same type as the current value under that key in props.
     NOTE/TODO: date-transformation is not supported yet."
   [args k props]
+  ;;(println "called commmandline-override with: args=" args " k=" k " and props=" props)
   (if-let [v (get-param args (name k) nil)]
     (let [kw (keyword k)
           ;;_  (println " type of original: " (type (kw props)))
@@ -73,6 +75,12 @@
               :else v)]
     (assoc props kw v))
     props))
+
+(defn commandline-override-all 
+  "Check if any of the parameters out of props in string args a key=value and if override it."
+  [args props]
+  ;;(println "keys of props are: " (keys props) " and props = " props)
+    (reduce #(commandline-override args %2 %1) props (keys props)))
 
 
 (defn show [msg r]
