@@ -7,10 +7,113 @@
              [clojure.java
               [io :as io]]
              [vinzi.tools 
-              [vFile :as vFile]])
+              [vFile :as vFile]
+              [vEdn :as vEdn]
+              [vExcept :as vExcept]])
   (:import [java.io     File   BufferedReader FileInputStream FileOutputStream
 	    BufferedInputStream]))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  function for the progress.edn file
+;;  The edn is currently coupled to the log-tracker and derives it's filename from that file.
+;;  Log entries have shape
+;;
+
+(defn derive-edn 
+  "Derive an edn file that uses the same path and basename as the logName. 
+   The new file-name ends with .edn. If the logName ends in .log this suffix is skipped."
+  [logName]
+  (str/replace logName #"^(.+)(\.log)$" "$1.edn"))
+
+
+(def progressEdnFile (atom nil))
+
+
+
+(defn unmangle
+  "Given the name of a class that implements a Clojure function, returns the function's name in Clojure. 
+   Note: If the true Clojure function name contains any underscores (a rare occurrence), the unmangled name will
+  contain hyphens at those locations instead."
+  [class-name]
+  (println "classname: "  class-name)
+  (println (re-find #"^(.+)\$(.+)__\d+$" class-name))
+  (str/replace class-name #"^(.+)\$(.+)(__\d*){0,1}$" "$1/$2"))
+
+
+(defmacro current-function-name []
+  "Returns a string, the name of the current Clojure function"
+  `(-> (Throwable.) .getStackTrace first .getClassName unmangle))
+
+(defn progress-entry-func 
+  "Add a progress.edn entry with 'currFunc', 'process' 'entity' and 'data' (only entity is optional).
+   Prefered use via macro (progress-entry)."
+  ([currFunc process] ;; just a checkpoint with a tag (process) 
+    (progress-entry-func currFunc process nil nil))
+  ([currFunc process data]  ;; entry with :entity nil 
+    (progress-entry-func currFunc process nil data))
+  ([currFunc process entity data]
+    (let [defaultEdn {:filename "/tmp/progress.edn"
+                      :get-line-count (fn [] -1)}
+          pEdn (if-let [pEdn @progressEdnFile] 
+                 pEdn
+                 (do
+                   (warn "No progess.edn set, so writing info to: " defaultEdn)
+                   defaultEdn))]
+        (let [{:keys [filename get-line-count]} pEdn
+              log-line-nr  (if (and get-line-count (fn? get-line-count)) (get-line-count) -123)
+              ednEntry (-> {:func currFunc
+                            :process process
+                            :log-line-nr log-line-nr
+                            :timestamp (java.util.Date.)
+                            }
+                         (#(if (not (nil? entity)) (conj % [:entity entity]) %))
+                         (#(if (not (nil? data)) (conj % [:data data]) %)))]
+          (when (or (not (number? log-line-nr)) (< log-line-nr 1))
+            (warn " line-count infom missing: " ednEntry))
+        ;;(println " going to add an entry: " ednEntry)
+          (vEdn/append-edn-file filename ednEntry)))))
+
+
+(defmacro progress-entry 
+  "Macro that captures current function name and adds an progress.edn entry.
+    The entries are:
+        {:func  <name of the current function is spliced in by macro>
+         :process The activity that produced this entry (Use a vector to represent nested processes).
+         :entity  Optional argument representing the data-object (first of args if args has multiple arguments)
+         :data    data element is third parameter if it exists, otherwise second parameter."
+  [process & args]
+  `(let [cfn# ~(current-function-name)]
+         (progress-entry-func cfn# ~process ~@args)))
+
+
+(defn set-progress-edn 
+  "Set the progress.edn file to be used (only one file can be set simultaneously)."
+  [logFileName get-log-line-count]
+  (if (not @progressEdnFile)
+    (let [ednDescr {:get-line-count get-log-line-count
+                    :filename (derive-edn logFileName)}]
+      (debug "set-progress-edn: " ednDescr)
+      (swap! progressEdnFile (fn [_] ednDescr))
+      (progress-entry :set-progress-edn ednDescr))
+    (vExcept/throw-except "The progressEdnFile is already set to: " @progressEdnFile)))
+
+(defn unset-progress-edn 
+  "Unset the current progress.edn file"
+  []
+  (swap! progressEdnFile (fn [_] nil)))
+
+
+
+(comment  ;; tests/examples
+(defn test-it1 []
+     (progress-entry :checkpoint))
+
+(defn test-it2 [data]
+     (progress-entry "only data" data))
+
+(defn test-it3 [entity data]
+     (progress-entry "only data" entity data)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;;   log-file-tracker
@@ -18,8 +121,6 @@
 
 ;; mask to discover the level of a log-line and extract the full prefix.
 (def discoverLevel #"^\d{2}:\d{2}:\d{2}\.\d{3} \[[\w-\d]*\] ([\w]*) ")
-
-
 
 
 
@@ -50,6 +151,8 @@
           {:keys [warnMinutes warnMessage killMinutes killMessage]} warnKill
           warnIter (when warnMinutes (long (* (/ 60000 sleepMs) warnMinutes)))
           killIter (when killMinutes (long (* (/ 60000 sleepMs) killMinutes)))
+          ;; warnCnt and killCnt are used to set the number of ticks (one tick is sleepMs) before a warning is issued
+          ;; or the jvm is killed.
           warnCnt (atom 0)
           killCnt (atom 0)
           ]
@@ -76,9 +179,30 @@
               killProgram (atom false)
               fileClosed (atom false)
               ]
-          (letfn [(lines-available []
+          (letfn [(increment-level
+                    ;;  increment the line-count of a specific level. If a level does not exist in the
+                    ;; hash-map it is created.
+                    ;; When the key :total-lines is passed the :total-lines count is incremented
+                    [level]
+                    ;; increment the line-count of keyword level
+                    (swap! lineCnts (fn [lCnts]
+                                      (let [cnt (level lCnts)
+                                            cnt (if cnt cnt 0)
+                                            res (assoc lCnts level (inc cnt))]
+                                        ;; auto-generate level if it does not exist.
+                                        res)))
+                    )
+                  (lines-available []
                                    (.ready br))
+                  (activity-observed []
+                                     ;; warnCnt and killCnt are used to set the number of ticks (one tick is sleepMs) before 
+                                     ;; a warning is issued or the jvm is killed.
+                                     ;; (log-activity triggers this function, however, extenal programs or the edn-progress tracker
+                                     ;; can issue this signal too)
+                        (swap! killCnt (fn [_] 0))
+                        (swap! warnCnt (fn [_] 0)))
                   (next-line
+                    ;; read the next line of the log-file
                     []
                     ;; a lazy file reader (the clojure.java.io.reader
                     ;; closes the file when reaching EOF, even thought
@@ -86,8 +210,8 @@
                     (if (lines-available)
                       (let [line (.readLine br)]
                         ;;			   (print "next-line found: " line)
-                        (swap! killCnt (fn [_] 0))
-                        (swap! warnCnt (fn [_] 0))
+                        (activity-observed)
+                        (increment-level :total-lines)
                         line)
                       (if (not @stopThread)
                         (do  ;; wait 100 ms and do a retry
@@ -115,17 +239,9 @@
                             (System/exit -1))
                           nil)))
                     )  ;; signal end
-                  (increment-level
-                    [level]
-                    ;; increment the line-count of keyword level
-                    (swap! lineCnts (fn [lCnts]
-                                      (let [cnt (level lCnts)
-                                            cnt (if cnt cnt 0)
-                                            res (assoc lCnts level (inc cnt))]
-                                        ;; auto-generate level if it does not exist.
-                                        res)))
-                    )
                   (show []
+                        ;; process all available/unread lines in the log-file and update all counts.
+                        ;; a counts object is returned
                         (if-let [line (next-line)]
                           (let [[prefix level] (re-find discoverLevel line)]
                             (if level
@@ -159,7 +275,7 @@
                               (let [lCnts @lineCnts
                                     _  (println "get-counts: " lCnts)
                                     total (reduce + (vals lCnts))]
-                                (assoc lCnts :total-lines total))
+                                (assoc lCnts :total-entries total))
                               )
                   (stop-log-tracker []
                                     (swap! stopThread (fn[_] true))
@@ -170,6 +286,7 @@
                                       ;; give 'show' time to print the last few lines
                                       (when (not @fileClosed)
                                         (recur)))
+                                    (unset-progress-edn)
                                     (get-counts)
                                     )
                   ]
@@ -186,10 +303,20 @@
                  ;; expose the interface
                  (let [logTrackInt {:get-counts-log get-counts
                                     :stop-log-tracker  stop-log-tracker}]
+                   
+                   ;; introduce an edn-file
+                   (set-progress-edn fName #(:total-lines (get-counts)))
+
                    (println "generated structure: " logTrackInt)
                    logTrackInt)
                  ))
         ))))
+
+
+
+
+
+
 
 
 

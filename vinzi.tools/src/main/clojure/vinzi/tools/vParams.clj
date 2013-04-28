@@ -79,6 +79,8 @@
 (defn commandline-override-all 
   "Check if any of the parameters out of props in string args a key=value and if override it."
   [args props]
+  {:pre [(sequential? args) 
+         (or (map? props) (= (type props) java.util.Properties))]}
   ;;(println "keys of props are: " (keys props) " and props = " props)
     (reduce #(commandline-override args %2 %1) props (keys props)))
 

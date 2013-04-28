@@ -1,4 +1,4 @@
-(ns vinzi.tools.cacheKey
+(ns vinzi.tools.vCacheKey
   (:use	[clojure [pprint :only [pprint pp]]]
         [clojure [stacktrace :only [print-stack-trace root-cause]]]
         [clojure.tools [logging :only [error info trace debug warn]]])
@@ -53,14 +53,35 @@
   (when-let [cache (get @GlobalCache cacheId)]
     [cacheId cache]))
 
+
+;(defn set-cache-entry "Set the cache-entry with key 'k' to value 'v'." [cache & kvs]
+;  (let [lpf "(set-cache-entry): "]
+;    (when (not (even? (count kvs)))
+;      (error lpf "Expected key-value pairs. Received more keys than values.")
+;      (assert (even? (count kvs))))
+;    (let [ch (second cache)
+;          newEntries (apply hash-map kvs)]
+;      (swap! ch (fn [c] (into c newEntries))))))
+
+
+
 (defn set-cache-entry "Set the cache-entry with key 'k' to value 'v'." [cache & kvs]
   (let [lpf "(set-cache-entry): "]
     (when (not (even? (count kvs)))
       (error lpf "Expected key-value pairs. Received more keys than values.")
       (assert (even? (count kvs))))
-    (let [ch (second cache)
-	  newEntries (apply hash-map kvs)]
-      (swap! ch (fn [c] (into c newEntries))))))
+    (let [
+          ch (second cache)
+          newEntries (apply hash-map kvs)
+          ks (keys newEntries) 
+          count-new-entries (fn [ks]
+                              (count (filter #(= ::default %) (map #(get ch % ::default) ks))))
+          numNew (count-new-entries ks)
+          stats  {:added-entries    numNew
+                  :updated-entries  (- (count ks) numNew)}
+          ]
+      (swap! ch (fn [c] (into c newEntries)))
+      stats)))  
 
 
 (defn get-cache-entry "Lookup a cache entry in 'cache'." [cache k]
