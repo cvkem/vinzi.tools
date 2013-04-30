@@ -344,12 +344,12 @@
   ;; current version uses string concatenation and a separator.
       ;; The next version will create compact binary keys.
   (let [lpf "(gen-compound-key): "
-	kVals (map #(% item) keyList)
-	k (str/join keySep (map str kVals))]
+        kVals (map #(% item) keyList)
+        k (str/join keySep (map str kVals))]
 ;;    (trace lpf "item: " item " with keyList " keyList
 ;;	   "\nresulted in kVals=" kVals
 ;;	   "\ngenerated key of size " (count k) " key=" k)
-    k))
+k))
 
 (defn unpack-key-str "This routine the the reverse operation of gen-compound-key. It splits the key in its constituent fields and translates these fields to the appropriate types again.
 However, the keys are returned as a list (and not as a map)!." [k fldTypes]

@@ -1,8 +1,9 @@
 (ns clj-excel.core
-  (:use clojure.java.io)
-  (:import [org.apache.poi.xssf.usermodel XSSFWorkbook])
-  (:import [org.apache.poi.hssf.usermodel HSSFWorkbook])
-  (:import [org.apache.poi.ss.usermodel Row Cell DateUtil WorkbookFactory CellStyle Font]))
+  (:use clojure.java.io
+        clojure.tools.logging)
+  (:import [org.apache.poi.xssf.usermodel XSSFWorkbook]
+           [org.apache.poi.hssf.usermodel HSSFWorkbook]
+           [org.apache.poi.ss.usermodel Row Cell DateUtil WorkbookFactory CellStyle Font]))
 
 
 ;;;;
@@ -168,7 +169,14 @@
 ;; only an internal function used by merge-rows?
 (defn set-cell
   "Set cell at specified location with value."
-  ([cell value] (.setCellValue cell (coerce value)))
+  ([cell value] 
+    (try
+      (.setCellValue cell (coerce value))
+      (catch Throwable t
+        (error "(clj-excel/set-cell): type error on value " value " of " (type value))
+        (let [coerced (coerce value)]
+          (error "(clj-excel/set-cell): which was coerced to value " coerced " of " (type coerced))) 
+        (throw t)))) ;; rethrow it after having done the additional reporting
   ([row col value] (set-cell (or (get-cell row col) (.createCell row col)) value))
   ([sheet row col value]
     (println "enter (set-cell " sheet " " row " " col " " value ") while (.getRow sheet row) returns: " (.getRow sheet row))

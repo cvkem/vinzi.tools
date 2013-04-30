@@ -147,6 +147,10 @@
 ;; conversion routines to ensure the correct types of data-values for sql
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+(defn java-util-date [sqlDate]
+  (java.util.Date. (.getTime sqlDate)))
+
 (comment  ;; CASE dispatch on classnames does not work with type or class
   ;; java.lang.IllegalArgumentException: No matching clause: class java.sql.Timestamp
 (defn convert-to-date [x] 
