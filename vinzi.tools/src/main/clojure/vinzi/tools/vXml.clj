@@ -5,9 +5,10 @@
   (:require [clojure
              [xml :as xml]
              [set :as set]]
+            [debug-repl [debug-repl :as dr]]
             [vinzi.tools [vExcept :as vExcept]]))
 
-(def validTagDescrKeys #{:keyMap :idAttr :keepId})
+(def validTagDescrKeys #{:keyMap :idAttr :keepId :allowContent :groupTags})
 
 (def ^:dynamic tagIt true)
 
@@ -36,30 +37,42 @@
           tagDescr (when xmlDef (xmlDef tag))
           _  (when (and forceTagDef (nil? tagDescr))
                (vExcept/throw-except lpf "the tag: " tag " is not defined in xmlDef. Correct this, or set parameter forceTagDef to false."
-                                     "\n\tCurrent xmlDef: " (with-out-str (pprint xmlDef))))
-          {:keys [idAttr keyMap keepId]} tagDescr
+                                     "\n\tCurrent xmlDef: " (with-out-str (pprint xmlDef))
+                                     "\n\txml=" (with-out-str (pprint xml))))
+          {:keys [idAttr keyMap keepId allowContent groupTags]} tagDescr
 ;          _ (println "Parsing tag " tag " with tagDescr: " tagDescr)
           _ (when-let [unknownKeys (seq (set/difference (set (keys tagDescr)) validTagDescrKeys))]
-              (vExcept/throw-except lpf "Keymap should only contain the keys: " validTagDescrKeys ", also observed keys: " unknownKeys))
+              (vExcept/throw-except lpf "KeyMap should only contain the keys: " validTagDescrKeys ", also observed keys: " unknownKeys))
           [nme attrs] (if idAttr 
                         [(keyword (idAttr attrs)) (if keepId attrs (dissoc attrs idAttr))]
                       [tag attrs])
           attrs (if (and tagIt (not (:tag attrs))) (assoc attrs :tag tag) attrs)   ;; adds :tag if it does not exist already in the record (unless it has value nil)
-          _ (println  "\t using name "  nme (str (when idAttr (str " based on attribute " idAttr))))
-          check-conj (fn [cumm kv]
-                       ;; 
-                       (let [k (first kv)]
-                         (if (k cumm)
-                           (vExcept/throw-except lpf "key=" k " is already present in map for " nme "\n\t map contains: " cumm
-                                              "\n\t (notice xml is processed depth-first, so there might also be unnoticed errors higher up in the tree)")
-                           (conj cumm kv))))
+ ;;         _ (println  "\t using name "  nme (str (when idAttr (str " based on attribute " idAttr))))
+          process-content (fn [attrs content]
+                            ;; All none-xml elements stored under tag :xml-content, and the xml-elements are processed.
+                            (let [check-conj (fn [cumm kv]
+                                               ;; 
+                                               (let [k (first kv)]
+                                                 (if (k cumm)
+                                                   (vExcept/throw-except lpf "key=" k " is already present in map for " nme "\n\t map contains: " cumm
+                                                                         "\n\t (notice xml is processed depth-first, so there might also be unnoticed errors higher up in the tree)")
+                                                   (conj cumm kv))))
+                                  xmlElem (filter (complement string?) content)
+                                  strElem (filter string? content)
+                                  xmlElem (->> (map #(xml-to-hashmap % keyMap forceTagDef) xmlElem)
+                                            (reduce check-conj (if attrs attrs {}) ))
+                                  ]
+                              (if (seq strElem)
+                                (if allowContent
+                                  (assoc xmlElem :xml-content (vec strElem))
+                                  (vExcept/throw-except lpf "content is not allowed for tag: " tag))
+                                xmlElem)))
           ]
-      (println "processing with tag=" tag " nme=" nme " and attrs="attrs)
+;;      (println "processing with tag=" tag " nme=" nme " and attrs="attrs)
       (when (nil? nme)
         (vExcept/throw-except lpf " No name obtained for tag=" tag " using idAttr=" idAttr " within attributes=" attrs))
       [nme (if content
-             ;; TODO:  replace conj with a function that warns/errors if a key already exists.
-             (reduce check-conj (if attrs attrs {}) (map #(xml-to-hashmap % keyMap forceTagDef) content))
+              (process-content attrs content)
              attrs)])))
 
 

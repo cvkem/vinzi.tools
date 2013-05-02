@@ -105,6 +105,23 @@
 (def resXml6tagged [:top-level {:tag :top-level :A {:tag :sub :AA {:tag :subsub}} :A2 {:tag :SUB2 :AA {:tag :subsub}}:B {:tag :sub}}])
 
 
+;; one additional nested level 
+(def testXml7 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+               <top-level>
+                  <sub name=\"A\">
+                      <subsub theKey=\"AA\"/>
+                      <subsub theKey=\"AA\"/>
+                  </sub>
+                  <sub name=\"B\">
+                  </sub>
+               </top-level>")
+
+(def keyMap7  {:top-level 
+                       {:keyMap {:sub {:idAttr :name
+                                       :keyMap {:subsub {:idAttr :theKey}}}}}})
+
+
+
 (deftest testxml
   (let [fName "/tmp/tstxml1.xml"]
     (spit fName testXml1)
@@ -124,6 +141,9 @@
     (is (= (vXml/xml-str-to-hashmap testXml5 keyMap5) resXml5))
     (is (= (vXml/xml-str-to-hashmap testXml6 keyMap6) resXml6))
 
+    (is (thrown? Exception (vXml/xml-str-to-hashmap testXml7 keyMap7))
+        "Should have throw exception for Duplicate id.")
+
     ;;
    (is (= (vXml/xml-file-to-hashmap fName keyMap1keepId) resXml1keepId))
     
@@ -141,4 +161,5 @@
     (is (= (vXml/xml-str-to-hashmap testXml5 keyMap5) resXml5tagged))
     (is (= (vXml/xml-str-to-hashmap testXml6 keyMap6) resXml6tagged))
 
+    
     ))

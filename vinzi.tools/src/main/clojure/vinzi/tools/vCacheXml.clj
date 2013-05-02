@@ -23,7 +23,7 @@
                 fName
                 (vFile/filename (vFile/get-current-dir) fName)))
             (read-xml-file  
-              ;;Read a xml-file and compile it's code section (if present).
+              ;;Read a xml-file and parse the xml
               [fName]
               (let [lpf "(read-xml-file): "
                     read-xml (fn [fName]
@@ -34,14 +34,13 @@
                                          logMsg (str prefix "\nException: " (.getMessage e))]
                                      (error logMsg)
                                      (binding [*out* *err*]
-                           (println prefix)) ;; file-info (duplic?)
+                                       (println prefix)) ;; file-info (duplic?)
                                      (throw e)))))]  ;; re-throw same exception
                 (let [xml  (read-xml fName)]
- ;;                 (when (fn? xml-init)
- ;;                   (xml-init fName xml))
                   xml)))
             (get-xml-file 
-              ;; Try to read the config-file from the request from the internal cache. If it is not available read it from disc and cache it.
+              ;; Try to read the config-file from the request from the internal cache. 
+              ;; If it is not available read it from disc and cache it and apply the initialization.
               [fName]
               (let [lpf "(get-xml-file): "
                     fName (extend-xml-filepath fName)
