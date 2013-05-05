@@ -3,10 +3,11 @@
          [clojure [stacktrace :only [print-stack-trace root-cause]]]
 	   [clojure.tools [logging :only [error info trace debug warn]]])
   (:require [clojure
-	     [string :as str]]
-	    [vinzi.tools
-         [vDateTime :as vDate]
-         [vExcept :as vExcept]]))
+             [string :as str]
+             [edn :as edn]]
+            [vinzi.tools
+             [vDateTime :as vDate]
+             [vExcept :as vExcept]]))
 
 
 
@@ -105,6 +106,8 @@
                                      false
                                      (vExcept/throw-except lpf "Boolean should either be " 
                                                            true-values " or " false-values ". Received value: " x))))))
+        convert-edn (fn [x]
+                      (edn/read-string x))
         convert-type (fn [cumm [k tp]]
                        (if-let [value (get cumm k)]
                          (let [converted (case (keyword tp) 
@@ -113,6 +116,7 @@
                                            :date (convert-date value)
                                            :timestamp (convert-timestamp value)
                                            :boolean   (convert-boolean value)
+                                           :edn       (convert-edn value)
                                            (vExcept/throw-except lpf "Unknown type: " tp 
                                                                  " in type-map: " typeMap 
                                                                  " for parameters: " pars))]

@@ -4,7 +4,8 @@
         [clojure.tools [logging :only [error info trace debug warn]]])
   (:require [clojure
              [string :as str]]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [vinzi.tools [vExcept :as vExcept]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;   taken from vinzi.tools.fileTools
@@ -23,10 +24,46 @@
   [fName]
   (.startsWith (str/trim fName) (str "." FileSep)))
 
+
+(defn home-path? "Check whether 'fName' is a home path (starts with ~/ )."
+  [fName]
+  (.startsWith (str/trim fName) (str "~" FileSep)))
+
+
+(defn parent-path? "Check whether 'fName' points to a parent directory (starts with ../ )."
+  [fName]
+  (or (.startsWith (str/trim fName) (str ".." FileSep))
+      (= (str/trim fName) "..")))
+
+
 (defn full-path? "Detect fully specified paths (paths that start with theSep '/' or './'."
      [fName]
      (or (absolute-path? fName)
+         (home-path? fName)
+;;         (parent-path? fName)
          (explicit-relative-path? fName)))
+
+(defn strip-last-folder 
+  "Strip the last folder of the 'path', but do not remove the FileSep before the last folder.
+   Throws an exception if it does not exist (instead of returning empty strings."
+  [path]
+  (let [lpf "(strip-last-folder): "
+        parentPath (str/replace path (re-pattern (str "[\\w\\s]*" FileSep "{0,1}$")) "")]
+    (if (seq parentPath)
+      parentPath
+      (vExcept/throw-except lpf "Path " path " does not have a parent-folder"))))
+
+(defn strip-parent-prefix 
+  "Strip the parent-prefix (../) from a path.
+   Throws an exception if it does not exist (instead of returning empty strings."
+  [path]
+  (if (= path "..") ;; no trailing / needed
+    ""
+    (let [lpf "(strip-parent-prefix): "
+          shortenedPath (str/replace path (re-pattern (str "^\\.\\." FileSep)) "")]
+      (when (not (.startsWith path (str ".." FileSep)))
+        (vExcept/throw-except lpf "Path " path " does not have a parent-prefix (../)"))
+      shortenedPath)))
 
 
 (defn filename 
@@ -35,7 +72,10 @@
   and it accepts children that start with a '/' (see above).
   (Furthermore this function has additional logging and error-reporting that is not in (io/file)"
   [base fName]
-  (let [lpf "(filename): "]
+  (let [lpf "(filename): "
+        base (if (#{"~" (str "~" FileSep)} (str/trim base))
+               (get (System/getenv) "HOME")
+                               base)]
     (if (= 0 (count (str/trim base)))
       (do
         (warn lpf "Base directory is empty, so return filename unmodified: "
@@ -45,8 +85,17 @@
         (do
           (warn lpf "fName represents an absolute path: '" fName "',\n"
                 "therefore base: '" base "' is NOT added as prefix.")
-          fName)
-        (let [separator (if (= FileSep (str (last base))) "" FileSep)
+          (if (home-path? fName)
+            (filename (get (System/getenv) "HOME")  (str/replace fName (re-pattern (str "^\\s*~" FileSep)) ""))
+          fName))
+        (let [process-parents (fn [base fName]
+                               (if (parent-path? fName)
+                                 (recur (strip-last-folder base) (strip-parent-prefix fName))
+                                 [base fName]))
+              _  (println "base=" base "  fName="fName)
+              [base fName] (process-parents base fName)
+              _  (println "base=" base "  fName="fName)
+              separator (if (= FileSep (str (last base))) "" FileSep)
               res (str base separator fName)]
           (trace lpf "Generated filename: " res)
           res)))))
