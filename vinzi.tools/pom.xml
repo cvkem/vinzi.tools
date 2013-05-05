@@ -6,7 +6,13 @@
 	<version>0.2.0-SNAPSHOT</version>
 	<name>Vinzi tools</name>
 	<description>Set of (generic) auxiliary functions to support vinzi libraries, programs and tools</description>
-
+	<licenses>
+	    <license>
+	      <name>Eclipse Public License 1.0</name>
+	      <url>http://opensource.org/licenses/eclipse-1.0.php</url>
+	      <distribution>repo</distribution>
+	    </license>
+	</licenses>
 	<repositories>
 		<repository>
 			<id>Clojure Releases</id>
@@ -111,7 +117,7 @@
 				<configuration>
 					<replScript>src/main/scripts/maven-repl.clj</replScript>
 					<script>src/main/scripts/maven-run.clj</script>
-<!-- 					 <temporaryOutputDirectory>true</temporaryOutputDirectory> -->
+					<temporaryOutputDirectory>true</temporaryOutputDirectory>
 					 <!-- 
 					<copyDeclaredNamespaceOnly>true</copyDeclaredNamespaceOnly>
   						<namespaces>
