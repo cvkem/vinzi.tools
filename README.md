@@ -20,7 +20,7 @@ Maven dependency information:
 
 ```XML
 <dependency>
-  <groupId>org.clojuars.cvkem</groupId>
+  <groupId>org.clojars.cvkem</groupId>
   <artifactId>vinzi.tools</artifactId>
   <version>0.2.0</version>
 </dependency>
