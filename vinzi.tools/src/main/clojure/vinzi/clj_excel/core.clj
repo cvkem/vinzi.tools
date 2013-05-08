@@ -172,7 +172,7 @@
   ([cell value] 
     (try
       (when value
-        (.setCelValue cell (coerce value)))
+        (.setCellValue cell (coerce value)))
       (catch Throwable t
         (error "(clj-excel/set-cell): type error on value " value " of " (type value))
         (let [coerced (coerce value)]
