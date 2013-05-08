@@ -1,5 +1,5 @@
-(ns clj-excel.test.core
-  (:use [clj-excel.core])
+(ns vinzi.clj-excel.test.core
+  (:use [vinzi.clj-excel.core])
   (:use [clojure.test]))
 
 (deftest replace-me ;; FIXME: write

@@ -5,7 +5,9 @@
          [stacktrace :only [print-stack-trace root-cause]]]
         [clojure.tools 
          [logging :only [error info trace debug warn]]])
-  (:require [clojure.string :as str]
+  (:require [clojure
+             [string :as str]
+             [set :as set]]
             [vinzi.tools 
              [vExcept :as vExcept]
              [vProperties :as vProp]
@@ -88,18 +90,28 @@
 (defn show [msg r]
   (do (debug msg (with-out-str (pprint r))) r))
 
+
 (defn get-properties 
   "Get the properites of a file, keywordize them and transform them according to typeMap."
   [propFile defMap typeMap]
-  (-> propFile
-    (vProp/read-properties)
-    ;;((partial show " props="))
-    (vMap/keywordize false)
-    ;;((partial show " keywordized="))
-    ((partial into defMap ))
-    ;;((partial show " with defaults="))
-    ((vMap/get-map-type-convertor typeMap) )
-    ((partial show " after type-conversion="))
-    ))
+  (let [lpf "(get-properties): "
+        report-missing-def (fn [props]
+                             (let [pKeys (set (keys props))
+                                   tKeys (set (keys typeMap))
+                                   missingDef (set/difference pKeys tKeys)]
+                               (when (seq missingDef)
+                                 (warn lpf "the properties: " (str/join ", " missingDef) "don't have a definition in the typeMap, and will be dropped"))
+                               props))]
+    (-> propFile
+      (vProp/read-properties)
+      ;;((partial show " props="))
+      (vMap/keywordize false)
+      ;;((partial show " keywordized="))
+      (report-missing-def)
+      ((partial into defMap ))
+      ;;((partial show " with defaults="))
+      ((vMap/get-map-type-convertor typeMap) )
+      ((partial show " after type-conversion="))
+      )))
 
 

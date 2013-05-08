@@ -92,9 +92,9 @@
                                (if (parent-path? fName)
                                  (recur (strip-last-folder base) (strip-parent-prefix fName))
                                  [base fName]))
-              _  (println "base=" base "  fName="fName)
+              ;;_  (println "base=" base "  fName="fName)
               [base fName] (process-parents base fName)
-              _  (println "base=" base "  fName="fName)
+              ;;_  (println "base=" base "  fName="fName)
               separator (if (= FileSep (str (last base))) "" FileSep)
               res (str base separator fName)]
           (trace lpf "Generated filename: " res)

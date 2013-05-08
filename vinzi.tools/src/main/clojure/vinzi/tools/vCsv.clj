@@ -367,17 +367,19 @@
 
 
 (defn map-seq-to-csv 
-  "Map a sequence of maps to a format that can be output to a csv."
-  [data]
-  (let [k (keys (first data))
-	;; prepare ordered keys (but retain type (keyword, string)
-	k (->> k
-	       (map #(vector (if (keyword %) (name %) %) %))
-	       (sort-by first)
-	       (map second))
+  "Map a sequence of maps to a format that can be output to a csv (first row contains column-names, subsequent rows the data).
+   If a second parameter is provided it will be uses as the sequence of keys to be included."
+  ([data]
+    (map-seq-to-csv (keys (first data))))
+  ([data k]
+  (let [;; prepare ordered keys (but retain type (keyword, string)
+        k (->> k
+            (map #(vector (if (keyword %) (name %) %) %))
+            (sort-by first)
+            (map second))
         vecData (map #(vec (map % k)) data)
         ks (vec (map name k))]
-    (cons ks vecData)))
+    (cons ks vecData))))
 
 
 (comment ;; test example map-seq-to-csv

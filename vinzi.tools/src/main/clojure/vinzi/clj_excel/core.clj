@@ -1,4 +1,4 @@
-(ns clj-excel.core
+(ns vinzi.clj-excel.core
   (:use clojure.java.io
         clojure.tools.logging)
   (:import [org.apache.poi.xssf.usermodel XSSFWorkbook]
@@ -171,7 +171,8 @@
   "Set cell at specified location with value."
   ([cell value] 
     (try
-      (.setCellValue cell (coerce value))
+      (when value
+        (.setCelValue cell (coerce value)))
       (catch Throwable t
         (error "(clj-excel/set-cell): type error on value " value " of " (type value))
         (let [coerced (coerce value)]

@@ -1,5 +1,5 @@
-(ns clj-excel.template
-  (:use clj-excel.core)
+(ns vinzi.clj-excel.template
+  (:use vinzi.clj-excel.core)
   (:import [org.apache.poi.ss.usermodel CellStyle]))
 
 (def ^:dynamic *styles* {})
