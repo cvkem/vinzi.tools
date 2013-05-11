@@ -136,7 +136,10 @@
     ;; return vector with: b=binary repres, fnz=firstNonZero cnt=byteCount
     [b fnz bCnt])))
 
-(defn- pack-binary "The 'bs' is a series of binary-descriptors, as produced by pack-binary-descr. Theis functions returns a single byte-array containing all the values and prefixed by a header that will be used to unpack it." [bs]
+(defn- pack-binary 
+  "The 'bs' is a series of binary-descriptors, as produced by pack-binary-descr. 
+ These functions returns a single byte-array containing all the values and prefixed by a header that will be used to unpack it." 
+  [bs]
 
     (throw (Exception. "(pack-binary) excluded from code"))
   (comment  ;; temporarily excluded
@@ -195,10 +198,10 @@
 (defn gen-compound-key-bin "Generate a (binary) key for hash-map 'item' by concatenating the items of the keylist." [item keyList]
   ;; current version uses string concatenation and a separator.
   ;; The next version will create compact binary keys.
-  (let [lpf "(gen-compound-key): "
-	kVals (map #(% item) keyList)
-	bVals (map packed-binary-descr kVals)
-	k  (pack-binary bVals)]
+  (let [lpf "(gen-compound-key-bin): "
+        kVals (map #(% item) keyList)
+        bVals (map packed-binary-descr kVals)
+        k  (pack-binary bVals)]
 ;;    (trace lpf "item: " item " with keyList " keyList
 ;;	   "\nresulted in kVals=" kVals
 ;;	   "\ngenerated key of size " (count k) " key=" k)
@@ -208,125 +211,125 @@
   (throw (Exception. "(unpack-key-bin) excluded from code"))
   (comment  ;; temporarily excluded
 
-  (let [lpf "(unpack-key): "
-	fCnt (count fldTypes)
-	headSize (int (/ fCnt 2))
-	headSize (if (odd? fCnt) (inc headSize) headSize)]
+  (let [lpf "(unpack-key-bin): "
+        fCnt (count fldTypes)
+        headSize (int (/ fCnt 2))
+        headSize (if (odd? fCnt) (inc headSize) headSize)]
     (letfn [(red-unpack-len-byte
-	     [cumm b]
-;;	     (trace lpf "unpack-len-byte: " b)
-	     (let [b  (if (< b 0) (+ b 256) b)  ;; make unsigned
-		   b1 (bit-shift-right b 4) 
-		   b2 (bit-and b 0xf)]
-;;	       (trace lpf " retrieved: b1=" b1 " and b2=" b2)
-	       (conj cumm b1 b2)))
-	    (red-get-start-pos
+              [cumm b]
+              ;;	     (trace lpf "unpack-len-byte: " b)
+              (let [b  (if (< b 0) (+ b 256) b)  ;; make unsigned
+                    b1 (bit-shift-right b 4) 
+                    b2 (bit-and b 0xf)]
+                ;;	       (trace lpf " retrieved: b1=" b1 " and b2=" b2)
+                (conj cumm b1 b2)))
+            (red-get-start-pos
 	     [cumm l]
 	     (conj cumm (+ l (last cumm))))
-	    (get-byteBuffer
-	     [bSize startPos len]
-	     ;; get a bytebuffer of 'bSize' contains bytes
-	     ;;    'startPos' .. 'startPos' + 'len' - 1
-	     (let [bb  (ByteBuffer/allocate bSize)
-		   prefix (int (- bSize len))
-		   endPos (int (+ startPos len))]
-;;	       (trace lpf "bSize=" bSize " start=" startPos " len=" len)
-	       (loop [prefix prefix]
-		 (when (> prefix 0)
-;;		   (trace lpf "put-prefix: " prefix)
-		   (.put bb (byte 0))
-		   (recur (dec prefix))))
-;;	       (trace lpf "added the prefix")
-	       (loop [pos    startPos]
-		 (when (< pos endPos)
-;;		   (trace lpf " pos " pos " retrieved value: " (get bKey pos))
-		   (.put bb (byte (get bKey pos)))
-		   (recur (inc pos))))
-	       (.clear bb)
-	       ))
-	    (get-byteBuffer-long
-	     [size startPos len]
-	     ;; get a bytebuffer of 'size' contains bytes
-	     ;;    'startPos' .. 'startPos' + 'len' - 1
-	     (let [bb  (ByteBuffer/allocate size)
-		   prefix (int (- size len))
-		   endPos (int (+ startPos len))]
-;;	       (trace lpf "size=" size " start=" startPos " len=" len)
-	       (loop [prefix prefix]
-		 (when (> prefix 0)
-;;		   (trace lpf "put-prefix: " prefix)
-		   (.put bb (byte 0))
-		   (recur (dec prefix))))
-;;	       (trace lpf "added the prefix")
-	       (loop [pos    startPos]
-		 (when (< pos endPos)
-;;		   (trace lpf " pos " pos " retrieved value: " (get bKey pos))
-		   (.put bb (byte (get bKey pos)))
-		   (recur (inc pos))))
-	       (.clear bb)
-	       (.getLong bb)))
-	    (get-byteBuffer-double
-	     [size startPos len]
-	     ;; get a bytebuffer of 'size' contains bytes
-	     ;;    'startPos' .. 'startPos' + 'len' - 1
-	     (let [bb  (ByteBuffer/allocate size)
-		   prefix (int (- size len))
-		   endPos (int (+ startPos len))]
-;;	       (trace lpf "size=" size " start=" startPos " len=" len)
-	       (loop [prefix prefix]
-		 (when (> prefix 0)
-;;		   (trace lpf "put-prefix: " prefix)
-		   (.put bb (byte 0))
-		   (recur (dec prefix))))
-;;	       (trace lpf "added the prefix")
-	       (loop [pos    startPos]
-		 (when (< pos endPos)
-;;		   (trace lpf " pos " pos " retrieved value: " (get bKey pos))
-		   (.put bb (byte (get bKey pos)))
-		   (recur (inc pos))))
-	       (.clear bb)
-	       (.getDouble bb)))
-	    (get-byteBuffer-int
-	     [size startPos len]
-	     ;; get a bytebuffer of 'size' contains bytes
-	     ;;    'startPos' .. 'startPos' + 'len' - 1
-	     (let [bb  (ByteBuffer/allocate size)
-		   prefix (int (- size len))
-		   endPos (int (+ startPos len))]
-;;	       (trace lpf "size=" size " start=" startPos " len=" len)
-	       (loop [prefix prefix]
-		 (when (> prefix 0)
-;;		   (trace lpf "put-prefix: " prefix)
-		   (.put bb (byte 0))
-		   (recur (dec prefix))))
-;;	       (trace lpf "added the prefix")
-	       (loop [pos    startPos]
-		 (when (< pos endPos)
-;;		   (trace lpf " pos " pos " retrieved value: " (get bKey pos))
-		   (.put bb (byte (get bKey pos)))
-		   (recur (inc pos))))
-	       (.clear bb)
-	       (.getDouble bb)))
-	    (get-value
-	     [tpe startPos len]
-	     (case tpe
-;		   "CHAR" (str x) 
-;;		   "LONG" (.getLong (get-byteBuffer 8 startPos len)) 
-		   "LONG" (get-byteBuffer-long 8 startPos len) 
-;;		   "DOUBLE" (.getDouble (get-byteBuffer 8 startPos len))
-;;  moved .getDouble into function to get rit of reflection issue		   
-		   "DOUBLE" (get-byteBuffer-double 8 startPos len)
-;		   "DATE" (vDate/str-to-sql-date x)
-		   "INTEGER" (get-byteBuffer-int 4 startPos len)
-;		   "FLOAT" (Float/parseFloat x) 
-		   ))]
-    (let [len (reduce red-unpack-len-byte [] (take headSize bKey))
-	  startPos (reduce red-get-start-pos [headSize] len)
-	  values (map get-value fldTypes startPos len)]
-;;      (trace lpf " The lengths are: " len)
-;;      (trace lpf "The start-positions are: " startPos)
-;;      (trace lpf " The values are: " values)
-      values)))))
+            (get-byteBuffer
+              [bSize startPos len]
+              ;; get a bytebuffer of 'bSize' contains bytes
+              ;;    'startPos' .. 'startPos' + 'len' - 1
+              (let [bb  (ByteBuffer/allocate bSize)
+                    prefix (int (- bSize len))
+                    endPos (int (+ startPos len))]
+                ;;	       (trace lpf "bSize=" bSize " start=" startPos " len=" len)
+                (loop [prefix prefix]
+                  (when (> prefix 0)
+                    ;;		   (trace lpf "put-prefix: " prefix)
+                    (.put bb (byte 0))
+                    (recur (dec prefix))))
+                ;;	       (trace lpf "added the prefix")
+                (loop [pos    startPos]
+                  (when (< pos endPos)
+                    ;;		   (trace lpf " pos " pos " retrieved value: " (get bKey pos))
+                    (.put bb (byte (get bKey pos)))
+                    (recur (inc pos))))
+                (.clear bb)
+                ))
+            (get-byteBuffer-long
+              [size startPos len]
+              ;; get a bytebuffer of 'size' contains bytes
+              ;;    'startPos' .. 'startPos' + 'len' - 1
+              (let [bb  (ByteBuffer/allocate size)
+                    prefix (int (- size len))
+                    endPos (int (+ startPos len))]
+                ;;	       (trace lpf "size=" size " start=" startPos " len=" len)
+                (loop [prefix prefix]
+                  (when (> prefix 0)
+                    ;;		   (trace lpf "put-prefix: " prefix)
+                    (.put bb (byte 0))
+                    (recur (dec prefix))))
+                ;;	       (trace lpf "added the prefix")
+                (loop [pos    startPos]
+                  (when (< pos endPos)
+                    ;;		   (trace lpf " pos " pos " retrieved value: " (get bKey pos))
+                    (.put bb (byte (get bKey pos)))
+                    (recur (inc pos))))
+                (.clear bb)
+                (.getLong bb)))
+            (get-byteBuffer-double
+              [size startPos len]
+              ;; get a bytebuffer of 'size' contains bytes
+              ;;    'startPos' .. 'startPos' + 'len' - 1
+              (let [bb  (ByteBuffer/allocate size)
+                    prefix (int (- size len))
+                    endPos (int (+ startPos len))]
+                ;;	       (trace lpf "size=" size " start=" startPos " len=" len)
+                (loop [prefix prefix]
+                  (when (> prefix 0)
+                    ;;		   (trace lpf "put-prefix: " prefix)
+                    (.put bb (byte 0))
+                    (recur (dec prefix))))
+                ;;	       (trace lpf "added the prefix")
+                (loop [pos    startPos]
+                  (when (< pos endPos)
+                    ;;		   (trace lpf " pos " pos " retrieved value: " (get bKey pos))
+                    (.put bb (byte (get bKey pos)))
+                    (recur (inc pos))))
+                (.clear bb)
+                (.getDouble bb)))
+            (get-byteBuffer-int
+              [size startPos len]
+              ;; get a bytebuffer of 'size' contains bytes
+              ;;    'startPos' .. 'startPos' + 'len' - 1
+              (let [bb  (ByteBuffer/allocate size)
+                    prefix (int (- size len))
+                    endPos (int (+ startPos len))]
+                ;;	       (trace lpf "size=" size " start=" startPos " len=" len)
+                (loop [prefix prefix]
+                  (when (> prefix 0)
+                    ;;		   (trace lpf "put-prefix: " prefix)
+                    (.put bb (byte 0))
+                    (recur (dec prefix))))
+                ;;	       (trace lpf "added the prefix")
+                (loop [pos    startPos]
+                  (when (< pos endPos)
+                    ;;		   (trace lpf " pos " pos " retrieved value: " (get bKey pos))
+                    (.put bb (byte (get bKey pos)))
+                    (recur (inc pos))))
+                (.clear bb)
+                (.getDouble bb)))
+            (get-value
+              [tpe startPos len]
+              (case tpe
+                ;		   "CHAR" (str x) 
+                ;;		   "LONG" (.getLong (get-byteBuffer 8 startPos len)) 
+                "LONG" (get-byteBuffer-long 8 startPos len) 
+                ;;		   "DOUBLE" (.getDouble (get-byteBuffer 8 startPos len))
+                ;;  moved .getDouble into function to get rit of reflection issue		   
+                "DOUBLE" (get-byteBuffer-double 8 startPos len)
+                ;		   "DATE" (vDate/str-to-sql-date x)
+                "INTEGER" (get-byteBuffer-int 4 startPos len)
+                ;		   "FLOAT" (Float/parseFloat x) 
+                ))]
+      (let [len (reduce red-unpack-len-byte [] (take headSize bKey))
+            startPos (reduce red-get-start-pos [headSize] len)
+            values (map get-value fldTypes startPos len)]
+        ;;      (trace lpf " The lengths are: " len)
+        ;;      (trace lpf "The start-positions are: " startPos)
+        ;;      (trace lpf " The values are: " values)
+        values)))))
 
 
 
@@ -340,39 +343,43 @@
 (def keySep "&|")
 (def keySepRe (re-pattern #"&\|"))
 
-(defn gen-compound-key-str "Generate a (binary) key for hash-map 'item' by concatenating the items of the keylist." [item keyList]
+(defn gen-compound-key-str 
+  "Generate a (binary) key for hash-map 'item' by concatenating the items of the keylist." 
+  [item keyList]
   ;; current version uses string concatenation and a separator.
-      ;; The next version will create compact binary keys.
-  (let [lpf "(gen-compound-key): "
+  ;; The next version will create compact binary keys.
+  (let [lpf "(gen-compound-key-str): "
         kVals (map #(% item) keyList)
         k (str/join keySep (map str kVals))]
-;;    (trace lpf "item: " item " with keyList " keyList
-;;	   "\nresulted in kVals=" kVals
-;;	   "\ngenerated key of size " (count k) " key=" k)
-k))
+    ;;    (trace lpf "item: " item " with keyList " keyList
+    ;;	   "\nresulted in kVals=" kVals
+    ;;	   "\ngenerated key of size " (count k) " key=" k)
+    k))
 
-(defn unpack-key-str "This routine the the reverse operation of gen-compound-key. It splits the key in its constituent fields and translates these fields to the appropriate types again.
-However, the keys are returned as a list (and not as a map)!." [k fldTypes]
-  (let [lpf "(unpack-key): "
-	;; GS: (str/split "&|" #"&\|") => nil
-	;; last item may not appear in items
-	items (str/split k keySepRe)
-	items (if (= (count items) (count fldTypes))
-		items
-		(concat items [""]))
-	_ (when (not= (count items) (count fldTypes))
-	    (debug lpf "Need equal numbers of items and fldTypes" items fldTypes))
-	translate (fn [x tp]
-		    (when (not= x "")
-		      (case tp
-			    "CHAR" (str x) 
-			    "LONG" (Long/parseLong x) 
-			    "DOUBLE" (Double/parseDouble x)
-			    "double precision" (Double/parseDouble x)
-			    "DATE" (vDate/str-to-sql-date x)
-			    "INTEGER" (Integer/parseInt x)
-			    "FLOAT" (Float/parseFloat x) 
-			    )))]
+(defn unpack-key-str
+  "This routine the the reverse operation of gen-compound-key. It splits the key in its constituent fields and 
+  translates these fields to the appropriate types again.
+  However, the keys are returned as a list (and not as a map)!." [k fldTypes]
+  (let [lpf "(unpack-key-str): "
+        ;; GS: (str/split "&|" #"&\|") => nil
+        ;; last item may not appear in items
+        items (str/split k keySepRe)
+        items (if (= (count items) (count fldTypes))
+                items
+                (concat items [""]))
+        _ (when (not= (count items) (count fldTypes))
+            (debug lpf "Need equal numbers of items and fldTypes" items fldTypes))
+        translate (fn [x tp]
+                    (when (not= x "")
+                      (case tp
+                        "CHAR" (str x) 
+                        "LONG" (Long/parseLong x) 
+                        "DOUBLE" (Double/parseDouble x)
+                        "double precision" (Double/parseDouble x)
+                        "DATE" (vDate/str-to-sql-date x)
+                        "INTEGER" (Integer/parseInt x)
+                        "FLOAT" (Float/parseFloat x) 
+                        )))]
     (map translate items fldTypes)))
 
 
@@ -428,49 +435,49 @@ However, the keys are returned as a list (and not as a map)!." [k fldTypes]
 
 (defn test-speed-keys []
   (let [testRec {:int 10 :dbl 20.1}
-	testKeys '(:int :dbl)
-	testTps  '("LONG" "DOUBLE")
-	bKey    (gen-compound-key-bin testRec testKeys)
-	sKey    (gen-compound-key-str testRec testKeys)
-	numTest  10000]
+        testKeys '(:int :dbl)
+        testTps  '("LONG" "DOUBLE")
+        bKey    (gen-compound-key-bin testRec testKeys)
+        sKey    (gen-compound-key-str testRec testKeys)
+        numTest  10000]
     (println "Run test for generate binary key")
     (time (loop [i (int numTest)]
-	    (when (> i 0)
-	      (gen-compound-key-bin testRec testKeys)
-	      (recur (dec i)))))
+            (when (> i 0)
+              (gen-compound-key-bin testRec testKeys)
+              (recur (dec i)))))
     (println "Run test for generate string key")
     (time (loop [i numTest]
-	    (when (> i 0)
-	      (gen-compound-key-str testRec testKeys)
-	      (recur (dec i)))))
+            (when (> i 0)
+              (gen-compound-key-str testRec testKeys)
+              (recur (dec i)))))
     (println "Run test for unpack bin key")
     (time (loop [i numTest]
-	    (when (> i 0)
-	      (unpack-key-bin bKey testTps)
-	      (recur (dec i)))))
+            (when (> i 0)
+              (unpack-key-bin bKey testTps)
+              (recur (dec i)))))
     (println "Run test for unpack string key")
     (time (loop [i (int numTest)]
-	    (when (> i 0)
-	      (unpack-key-str sKey testTps)
-	      (recur (dec i)))))
-
-
+            (when (> i 0)
+              (unpack-key-str sKey testTps)
+              (recur (dec i)))))
+    
+    
     (println "\n\n New generate tests")
     (let [res (time (doall
-		  (map #(list % (gen-compound-key-bin testRec testKeys))
-			 (range numTest))))]
+                      (map #(list % (gen-compound-key-bin testRec testKeys))
+                           (range numTest))))]
       (println "binary returned: " (count res) " items"))
-
+    
     (let [res (time (doall
 		  (map #(list % (gen-compound-key-str testRec testKeys))
 			 (range numTest))))]
       (println "string returned: " (count res) " items"))
-
+    
     (println "\n\n New test unpacking of keys")
     (let [res (time (doall
-		     (reduce (fn [a b]
-   ;;			       (println "reduce a=" a " b=" b)
-;; NOTE: zodra je de doall uit de inner-loop haalt (volgende code-regel) dan crashed de functie met een stack-overflow  ???			       
+                      (reduce (fn [a b]
+                                ;;			       (println "reduce a=" a " b=" b)
+                                ;; NOTE: zodra je de doall uit de inner-loop haalt (volgende code-regel) dan crashed de functie met een stack-overflow  ???			       
 			       (doall (map + a (second b))))
 			     '(0 0.0)
 			(map #(list % (unpack-key-bin bKey testTps))

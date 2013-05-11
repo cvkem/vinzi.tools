@@ -115,14 +115,36 @@
        Cell/CELL_TYPE_ERROR {:error (.getErrorCellValue cell)}
        :unsupported)))
 
+(def curr-formats (atom nil))
+
 (defn workbook
   "Create or open new excel workbook. Defaults to xlsx format."
 ;  ([] (new XSSFWorkbook))
   ;; CvK  added this function as the new XSSFWorkbook results in invalid excel-files
   ([] (workbook (-> (Thread/currentThread) 
                   .getContextClassLoader 
-                  (.getResource "empty.xls"))))  ;; reads an empty xls (HSSF format) from the classpath (located in vinzi.tools/resources
-  ([input] (WorkbookFactory/create (input-stream input))))
+                  (.getResource "empty.xls"))))  ;; reads an empty xls (HSSF format) from the classpath (located in vinzi.tools/resources)
+  ([input] (let [wb (WorkbookFactory/create (input-stream input))]
+             (when @curr-formats
+               (throw (Exception. "Currently only able to open one workbook simultaneously")))
+             (let [
+;                   create-style (fn [formatStr]
+;                                  (let [df (-> (.createDataFormat wb)
+;                                             (.getFormat formatStr))
+;                                        ;; replace by create-cell-style
+;                                        cellStyle (.createCellStyle wb)]
+;                                    (.setDataFormat cellStyle df)
+;                                    cellStyle))
+;                   fmts {:dateFormat   (create-style "YYYY-MM-DD")
+;                         :doubleFormat (create-style "#,##0.0")
+;                         :textFormat    (create-style "@")}]
+                   fmts {:dateFormat   (create-cell-style wb :format "YYYY-MM-DD")
+                         :doubleFormat (create-cell-style wb :format "#,##0.0")
+                         :textFormat    (create-cell-style wb :format "@")}]
+               (swap! curr-formats (fn [_] fmts)))
+               wb
+             )))
+
 
 (defn sheets
   "Get seq of sheets."
@@ -157,34 +179,58 @@
 
 ;; Writing Functions
 
-(defn coerce
-  "Coerce cell for Java typing."
-  [v]
-  (cond
-   (number? v) (double v)
-   (or (symbol? v) (keyword? v)) (name v)
-   :else v))
+;(defn coerce
+;  "Coerce cell for Java typing."
+;  [v]
+;  (cond
+;   (number? v) (double v)
+;   (or (symbol? v) (keyword? v)) (name v)
+;   :else v))
+
 
 
 ;; only an internal function used by merge-rows?
 (defn set-cell
   "Set cell at specified location with value."
   ([cell value] 
+    (let [cell-spec (fn 
+                      ;;"Get a cell definition consisting of a value and a format to be applied. Format might be nill"
+                      [value]
+                      (println "value " value " has type " (type value))
+                      (let [tp (type value)]
+                        (cond 
+                          (= tp java.lang.String) [value Cell/CELL_TYPE_STRING (:textFormat @curr-formats)]
+                          (#{clojure.lang.Keyword clojure.lang.Symbol} tp)  [(name value) Cell/CELL_TYPE_STRING (:textFormat @curr-formats)]
+                          (#{java.lang.Integer java.lang.Long} tp ) [(double value) Cell/CELL_TYPE_NUMERIC nil]
+                          (= tp java.lang.Boolean) [value Cell/CELL_TYPE_BOOLEAN nil]
+                          (#{java.lang.Double java.lang.Float} tp) [value Cell/CELL_TYPE_NUMERIC (:doubleFormat @curr-formats)]
+                          ;; dates are stored as a numeric with some additional formatting
+                          (#{java.util.Date java.sql.Date} tp)  [value Cell/CELL_TYPE_NUMERIC (:dateFormat @curr-formats)]
+                          ;;    java.sql.Date  [(java.util.Date. (.getTime value)) (:dateFormat @curr-formats)]  ;; converting to java-util.date
+                          ;;(= tp java.sql.Date)  [value  Cell/CELL_TYPE_NUMERIC (:dateFormat @curr-formats)]
+                          )))
+          ]
     (try
       (when value
-        (.setCellValue cell (coerce value)))
+        (let [[value tpe fmt] (cell-spec value)]
+          (println "set cell to value: " value " and format " fmt)
+          (.setCellValue cell value)
+          (when tpe 
+            (.setCellType cell tpe))
+          (when fmt
+            (.setCellStyle cell fmt))))
       (catch Throwable t
         (error "(clj-excel/set-cell): type error on value " value " of " (type value))
-        (let [coerced (coerce value)]
-          (error "(clj-excel/set-cell): which was coerced to value " coerced " of " (type coerced))) 
-        (throw t)))) ;; rethrow it after having done the additional reporting
+        (let [[coerced fmt] (cell-spec value)]
+          (error "(clj-excel/set-cell): which was coerced to value " coerced " of " (type coerced) " and format="fmt)) 
+        (throw t))))) ;; rethrow it after having done the additional reporting
   ([row col value] (set-cell (or (get-cell row col) (.createCell row col)) value))
   ([sheet row col value]
     (println "enter (set-cell " sheet " " row " " col " " value ") while (.getRow sheet row) returns: " (.getRow sheet row))
     (set-cell (or (.getRow sheet row) (.createRow sheet row)) col value)))
 
 (defn merge-rows
-  "Add rows at end of sheet."
+  "Add rows at end of sheet (or within sheet starting at row start) ."
   [sheet start rows]
   (doall
    (map
@@ -233,13 +279,31 @@
 
 
 (comment
+
+
+(def tstData2 {
+               :double 1.23
+;;               :float  (float 4.5) ;; float is not accepted.
+               :string "test-string"
+               :pseudo "<span class=\"pseudof\" key=\"ABC\"/>"
+               :java_date  (java.util.Date.)
+               :sql_date   (java.sql.Date. (.getTime (java.util.Date.)))
+    ;;           :int        (int 1)
+               :long       (long -10)
+               })
+
+(def tstRows1 (repeat 10 ["a" 1 2.0]))
+(def tstRows2 (list (keys tstData2) (vals tstData2)))
   
+
   ;; example
-  (def nb (ce/workbook))
-  (-> (first (ce/sheets nb))
-    (ce/merge-rows  5 (repeat 10 ["a" 1 2.0])))
-  (ce/save nb "/tmp/newfile.xls")
-)
+  (defn test-it []
+    (let [nb (workbook)] 
+      (-> (first (sheets nb))
+        (merge-rows  1 tstRows2))
+      (save nb "/tmp/newfile.xls")))
+  
+) ;; end comment
 
 
          
