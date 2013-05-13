@@ -90,12 +90,13 @@
 (defn set-progress-edn 
   "Set the progress.edn file to be used (only one file can be set simultaneously)."
   [logFileName get-log-line-count]
+  {:pre [(string? logFileName) (fn? get-log-line-count)]}
   (if (not @progressEdnFile)
     (let [ednDescr {:get-line-count get-log-line-count
                     :filename (derive-edn logFileName)}]
       (debug "set-progress-edn: " ednDescr)
       (swap! progressEdnFile (fn [_] ednDescr))
-      (progress-entry :set-progress-edn ednDescr))
+      (progress-entry :set-progress-edn (assoc ednDescr :get-line-count (str "Function: "(:get-line-count ednDescr)))))  ;; change function to string
     (vExcept/throw-except "The progressEdnFile is already set to: " @progressEdnFile)))
 
 (defn unset-progress-edn 

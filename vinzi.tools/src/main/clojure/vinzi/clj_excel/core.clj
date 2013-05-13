@@ -115,7 +115,9 @@
        Cell/CELL_TYPE_ERROR {:error (.getErrorCellValue cell)}
        :unsupported)))
 
-(def curr-formats (atom nil))
+;;(def curr-formats (atom nil))
+
+(declare sheets)
 
 (defn workbook
   "Create or open new excel workbook. Defaults to xlsx format."
@@ -124,10 +126,10 @@
   ([] (workbook (-> (Thread/currentThread) 
                   .getContextClassLoader 
                   (.getResource "empty.xls"))))  ;; reads an empty xls (HSSF format) from the classpath (located in vinzi.tools/resources)
-  ([input] (let [wb (WorkbookFactory/create (input-stream input))]
-             (when @curr-formats
-               (throw (Exception. "Currently only able to open one workbook simultaneously")))
-             (let [
+  ([input] (let [wb (WorkbookFactory/create (input-stream input))
+;             (when @curr-formats
+;               (throw (Exception. "Currently only able to open one workbook simultaneously")))
+;             (let [
 ;                   create-style (fn [formatStr]
 ;                                  (let [df (-> (.createDataFormat wb)
 ;                                             (.getFormat formatStr))
@@ -141,18 +143,25 @@
                    fmts {:dateFormat   (create-cell-style wb :format "YYYY-MM-DD")
                          :doubleFormat (create-cell-style wb :format "#,##0.0")
                          :textFormat    (create-cell-style wb :format "@")}]
-               (swap! curr-formats (fn [_] fmts)))
-               wb
+;               (swap! curr-formats (fn [_] fmts)))
+               {:poiWb wb
+                :formats fmts
+                :currSht (first (sheets wb))
+                }
              )))
 
 
 (defn sheets
   "Get seq of sheets."
-  [wb] (map #(.getSheetAt wb %1) (range 0 (.getNumberOfSheets wb))))
+  [wb]
+  (let [wb (if (map? wb) (:poiWb wb) wb) ]
+        (map #(.getSheetAt wb %1) (range 0 (.getNumberOfSheets wb)))))
 
 (defn rows
   "Return rows from sheet as seq.  Simple seq cast via Iterable implementation."
-  [sheet] (seq sheet))
+  [sheet] 
+  (let [sheet (if (map? sheet) (:currSht sheet) sheet)] ;; map workbook object to current sheet
+    (seq sheet)))
 
 (defn cells
   "Return seq of cells from row.  Simpel seq cast via Iterable implementation." 
@@ -173,7 +182,7 @@
   (zipmap (map #(.getSheetName %1) wb) (map lazy-sheet (sheets wb))))
 
 (defn get-cell
-  "Sell cell within row"
+  "Get cell within row"
   ([row col] (.getCell row col))
   ([sheet row col] (get-cell (or (.getRow sheet row) (.createRow sheet row)) col)))
 
@@ -190,53 +199,101 @@
 
 
 ;; only an internal function used by merge-rows?
+;(defn set-cell-aux
+;  "Set cell at specified location with value."
+;  ([cell value] 
+;    (let [cell-spec (fn 
+;                      ;;"Get a cell definition consisting of a value and a format to be applied. Format might be nill"
+;                      [value]
+;                      (println "value " value " has type " (type value))
+;                      (let [tp (type value)]
+;                        (cond 
+;                          (= tp java.lang.String) [value Cell/CELL_TYPE_STRING (:textFormat @curr-formats)]
+;                          (#{clojure.lang.Keyword clojure.lang.Symbol} tp)  [(name value) Cell/CELL_TYPE_STRING (:textFormat @curr-formats)]
+;                          (#{java.lang.Integer java.lang.Long} tp ) [(double value) Cell/CELL_TYPE_NUMERIC nil]
+;                          (= tp java.lang.Boolean) [value Cell/CELL_TYPE_BOOLEAN nil]
+;                          (#{java.lang.Double java.lang.Float} tp) [value Cell/CELL_TYPE_NUMERIC (:doubleFormat @curr-formats)]
+;                          ;; dates are stored as a numeric with some additional formatting
+;                          (#{java.util.Date java.sql.Date} tp)  [value Cell/CELL_TYPE_NUMERIC (:dateFormat @curr-formats)]
+;                          ;;    java.sql.Date  [(java.util.Date. (.getTime value)) (:dateFormat @curr-formats)]  ;; converting to java-util.date
+;                          ;;(= tp java.sql.Date)  [value  Cell/CELL_TYPE_NUMERIC (:dateFormat @curr-formats)]
+;                          )))
+;          ]
+;    (try
+;      (when value
+;        (let [[value tpe fmt] (cell-spec value)]
+;          (println "set cell to value: " value " and format " fmt)
+;          (.setCellValue cell value)
+;          (when tpe 
+;            (.setCellType cell tpe))
+;          (when fmt
+;            (.setCellStyle cell fmt))))
+;      (catch Throwable t
+;        (error "(clj-excel/set-cell-aux): type error on value " value " of " (type value))
+;        (let [[coerced fmt] (cell-spec value)]
+;          (error "(clj-excel/set-cell-aux): which was coerced to value " coerced " of " (type coerced) " and format="fmt)) 
+;        (throw t))))) ;; rethrow it after having done the additional reporting
+;  ([row col value] (set-cell-aux (or (get-cell row col) (.createCell row col)) value))
+;  ([sheet row col value]
+;    (println "enter (set-cell-aux " sheet " " row " " col " " value ") while (.getRow sheet row) returns: " (.getRow sheet row))
+;    (set-cell-aux (or (.getRow sheet row) (.createRow sheet row)) col value)))
+
+;; only an internal function used by merge-rows?
 (defn set-cell
-  "Set cell at specified location with value."
-  ([cell value] 
-    (let [cell-spec (fn 
-                      ;;"Get a cell definition consisting of a value and a format to be applied. Format might be nill"
-                      [value]
-                      (println "value " value " has type " (type value))
-                      (let [tp (type value)]
-                        (cond 
-                          (= tp java.lang.String) [value Cell/CELL_TYPE_STRING (:textFormat @curr-formats)]
-                          (#{clojure.lang.Keyword clojure.lang.Symbol} tp)  [(name value) Cell/CELL_TYPE_STRING (:textFormat @curr-formats)]
-                          (#{java.lang.Integer java.lang.Long} tp ) [(double value) Cell/CELL_TYPE_NUMERIC nil]
-                          (= tp java.lang.Boolean) [value Cell/CELL_TYPE_BOOLEAN nil]
-                          (#{java.lang.Double java.lang.Float} tp) [value Cell/CELL_TYPE_NUMERIC (:doubleFormat @curr-formats)]
-                          ;; dates are stored as a numeric with some additional formatting
-                          (#{java.util.Date java.sql.Date} tp)  [value Cell/CELL_TYPE_NUMERIC (:dateFormat @curr-formats)]
-                          ;;    java.sql.Date  [(java.util.Date. (.getTime value)) (:dateFormat @curr-formats)]  ;; converting to java-util.date
-                          ;;(= tp java.sql.Date)  [value  Cell/CELL_TYPE_NUMERIC (:dateFormat @curr-formats)]
-                          )))
+  "Set cell in the current sheet of workbook at specified location with value."
+  [workbook row col value]
+  {:pre [(map? workbook)]}
+    (let [{:keys [currSht formats]} workbook  ;; get current sheet and formats of this workbook
+          set-cell-aux (fn [cell value] 
+                         (let [cell-spec (fn 
+                                           ;;"Get a cell definition consisting of a value and a format to be applied. Format might be nill"
+                                           [value]
+                                           (println "value " value " has type " (type value))
+                                           (let [tp (type value)]
+                                             (cond 
+                                               (= tp java.lang.String) [value Cell/CELL_TYPE_STRING (:textFormat formats)]
+                                               (#{clojure.lang.Keyword clojure.lang.Symbol} tp)  [(name value) Cell/CELL_TYPE_STRING (:textFormat formats)]
+                                               (#{java.lang.Integer java.lang.Long} tp ) [(double value) Cell/CELL_TYPE_NUMERIC nil]
+                                               (= tp java.lang.Boolean) [value Cell/CELL_TYPE_BOOLEAN nil]
+                                               (#{java.lang.Double java.lang.Float} tp) [value Cell/CELL_TYPE_NUMERIC (:doubleFormat formats)]
+                                               ;; dates are stored as a numeric with some additional formatting
+                                               (#{java.util.Date java.sql.Date} tp)  [value Cell/CELL_TYPE_NUMERIC (:dateFormat formats)]
+                                               ;;    java.sql.Date  [(java.util.Date. (.getTime value)) (:dateFormat @curr-formats)]  ;; converting to java-util.date
+                                               ;;(= tp java.sql.Date)  [value  Cell/CELL_TYPE_NUMERIC (:dateFormat @curr-formats)]
+                                               )))
+                               ]
+                           (try
+                             (when value
+                               (let [[value tpe fmt] (cell-spec value)]
+                                 (println "set cell to value: " value " and format " fmt)
+                                 (.setCellValue cell value)
+                                 (when tpe 
+                                   (.setCellType cell tpe))
+                                 (when fmt
+                                   (.setCellStyle cell fmt))))
+                             (catch Throwable t
+                               (error "(clj-excel/set-cell-aux): type error on value " value " of " (type value))
+                               (let [[coerced fmt] (cell-spec value)]
+                                 (error "(clj-excel/set-cell-aux): which was coerced to value " coerced " of " (type coerced) " and format="fmt)) 
+                               (throw t))))) ;; rethrow it after having done the additional reporting
+          set-create-cell (fn [row col value] 
+                            (set-cell-aux (or (get-cell row col) (.createCell row col)) value))
+          set-create-cell-row (fn [sheet row col value]
+                                (println "enter (set-cell/set-create-cell-row " sheet " " row " " col " " value ") while (.getRow sheet row) returns: " (.getRow sheet row))
+                                (set-create-cell (or (.getRow sheet row) (.createRow sheet row)) col value))
           ]
-    (try
-      (when value
-        (let [[value tpe fmt] (cell-spec value)]
-          (println "set cell to value: " value " and format " fmt)
-          (.setCellValue cell value)
-          (when tpe 
-            (.setCellType cell tpe))
-          (when fmt
-            (.setCellStyle cell fmt))))
-      (catch Throwable t
-        (error "(clj-excel/set-cell): type error on value " value " of " (type value))
-        (let [[coerced fmt] (cell-spec value)]
-          (error "(clj-excel/set-cell): which was coerced to value " coerced " of " (type coerced) " and format="fmt)) 
-        (throw t))))) ;; rethrow it after having done the additional reporting
-  ([row col value] (set-cell (or (get-cell row col) (.createCell row col)) value))
-  ([sheet row col value]
-    (println "enter (set-cell " sheet " " row " " col " " value ") while (.getRow sheet row) returns: " (.getRow sheet row))
-    (set-cell (or (.getRow sheet row) (.createRow sheet row)) col value)))
+    (set-create-cell-row currSht row col value)))
+
 
 (defn merge-rows
   "Add rows at end of sheet (or within sheet starting at row start) ."
-  [sheet start rows]
+  [wb start rows]
+  {:pre [(map? wb)]}
   (doall
-   (map
-    (fn [rownum vals] (doall (map #(set-cell sheet rownum %1 %2) (iterate inc 0) vals)))
-    (range start (+ start (count rows)))
-    rows)))
+    (map
+      (fn [rownum vals] (doall (map #(set-cell wb rownum %1 %2) (iterate inc 0) vals)))
+      (range start (+ start (count rows)))
+      rows)))
 
 (defn build-sheet
   "Build sheet from seq of seq (representing cells in row of rows)."
@@ -247,7 +304,7 @@
     (merge-rows sheet 0 rows)))
 
 (defn build-workbook
-  "Build workbook from map of sheet names to multi dimensional seqs (ie a seq of seq)."
+  "Build workbook from map of sheet names to multi-dimensional seqs (ie a seq of seq)."
   ([wb wb-map]
      (doseq [[sheetname rows] wb-map]
        (build-sheet wb (str sheetname) rows))
@@ -257,9 +314,10 @@
 (defn save
   "Write worksheet to output-stream as coerced by OutputStream."
   [wb path]
+  {:pre [(map? wb)]}
   ;; CvK: added a with-open instead of a let
   (with-open [out (output-stream path)]
-    (.write wb out)))
+    (.write (:poiWb wb) out)))
 ;;    out))
 
 
@@ -267,9 +325,10 @@
 (defn save-to-byteStream
   "Write a workbook to a byte-stream. The bytestream can be written to an output-stream later (used for cdpPlugin interface"
   [wb]
+  {:pre [(map? wb)]}
   (let [bs (java.io.ByteArrayOutputStream.)]
     ;;
-    (.write wb bs)
+    (.write (:poiWb wb) bs)
 ;;    (.write bs (.getBytes wb))
   bs))
 
@@ -296,11 +355,16 @@
 (def tstRows2 (list (keys tstData2) (vals tstData2)))
   
 
-  ;; example
+  ;; OLD example
+;  (defn test-it []
+;    (let [nb (workbook)] 
+;      (-> (first (sheets nb))
+;        (merge-rows  1 tstRows2))
+;      (save nb "/tmp/newfile.xls")))
+  ;;new example
   (defn test-it []
     (let [nb (workbook)] 
-      (-> (first (sheets nb))
-        (merge-rows  1 tstRows2))
+        (merge-rows nb 1 tstRows2)
       (save nb "/tmp/newfile.xls")))
   
 ) ;; end comment

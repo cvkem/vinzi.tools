@@ -206,7 +206,7 @@
 
 
 (defn drop-folder 
-  "Drop folder, by first dropping it's contents."
+  "Drop folder, by first dropping it's contents. When passing 'false as second argument the folder will not be dropped, but only its contents."
   ([folder] drop-folder true)
   ([folder dropFolder]
   {:pre [(string? folder) (= (type dropFolder) java.lang.Boolean)]}

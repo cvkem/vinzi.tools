@@ -48,10 +48,19 @@
   (with-open [stream (java.io.PushbackReader. (java.io.FileReader. fName))]
     (edn/read stream)))
 
+(def debugging true)
+
 (defn read-edn-lazy-file 
   "Reads a lazy sequence of forms from a file."
   [fName]
-  (map edn/read-string (lazy-file-open fName)))
+  (let [read-entry (if debugging
+                     (fn [strs]
+                       (println "next string: " (first strs))
+                       (let [res (edn/read-string (first strs))]
+                         (println "produces data:") (pprint res)
+                         res))
+                       edn/read-string)]
+  (map edn/read-string (lazy-file-open fName))))
 
 
 (defn write-edn-file
