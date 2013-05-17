@@ -49,10 +49,13 @@
                         "class clojure.reflect.Constructor" "CONSTR"
                         (type x)))
            pa (fn [x] (case (str (class x))
-                        "class clojure.reflect.Method"  (str (:parameter-types x))
+                        "class clojure.reflect.Method"  (str "\tPars: " (:parameter-types x))
                         "class clojure.reflect.Field"   ""
-                        "class clojure.reflect.Constructor" ""
-                        (type x)))]
+                        "class clojure.reflect.Constructor" ""))
+           fl (fn [x] (case (str (class x))
+                        "class clojure.reflect.Method"  (str "\tFlags: " (:flags x))
+                        "class clojure.reflect.Field"   (str "\tFlags: " (:flags x))
+                        "class clojure.reflect.Constructor" ""))]
      (println "Object of type: " (type x)  " has members: ")
-     (print (str/join "\n" (map #(str (pt %) "\t " (:name %) "\t" (pa %) ) (:members (refl/reflect x)))))))
+     (print (str/join "\n" (map #(str (pt %) "\t " (:name %) (pa %) (fl %)) (:members (refl/reflect x)))))))
 

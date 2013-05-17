@@ -2,7 +2,9 @@
   (:use	[clojure [pprint :only [pprint pp]]]
         [clojure [stacktrace :only [print-stack-trace root-cause]]]
         [clojure.tools [logging :only [error info trace debug warn]]])
-  (:require [clojure.string :as str]
+  (:require [clojure
+             [set :as set]
+             [string :as str]]
             [clojure.java.jdbc :as sql]
             [vinzi.tools.vExcept :as vExcept]))
 
@@ -65,8 +67,9 @@
 
 
 
-(defn sqs "Change s to a single-quoted sting,
-   unless it is already single-quoted (no trimming of spaces on argument)."
+(defn sqs 
+  "Change s to a single-quoted sting, unless it is already single-quoted (no trimming of spaces on argument).
+    Fix a string for usage in sql query strings. All single quotes (') will be expanded to ''."
   [s]
   (let [s (str s)]
     (if (seq s)
@@ -75,8 +78,10 @@
         (if (or startQ endQ)
           (if (and startQ endQ)
             s    ;; string is single quoted already
-            (throw (Exception. (str "(vSql/qs) unbalanced quotes in argument: " s ))))
-          (str "'" s "'")))
+            (throw (Exception. (str "(vSql/sqs) unbalanced quotes in argument: " s ))))
+          (-> s
+            (str/replace #"'" "''")  ;; replace single quotes
+            (#(str "'" % "'") ))))
       "''")))
 
 (defn strip-dQuotes 
@@ -92,7 +97,6 @@
             (throw (Exception. (str "(vSql/qs) unbalanced quotes in argument: " s ))))
           s))  ;; no double quotes, so return s
       "\"\"")))
-
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -278,26 +282,27 @@
 
 
 
-
-(defn get-create-field-str "Return fieldsnames selected by 'sel' as quotes strings 
-  followed by the rest of the string (type, default-values, etc..) 
-  and interposed by commas(for usage in a create statement)."
-  [flds sel]
-  (let [lpf "(get-create-field-str): "
-        fldNames (map #(nth flds %) sel)
-        _ (trace lpf "selected fldNames: " fldNames)
-        fldNames (letfn [(quote-first [org]
-                                      (let [org (str/trim org)]
-                                        (if (= (first org) \")
-                                          org  ;; return unmodified
-                                          (let [s (str/split org #"\s+")
-                                                head (qs (first s))
-                                                tail (str/join " " (rest s))]
-                                            (str head "\t" tail)))))]
-                        (map quote-first fldNames))
-        _ (trace "after quoting fldNames: " fldNames)
-        fldNames  (interpose ", " fldNames)]
-    (apply str fldNames)))
+;; DEPRECATED:  use get-sql-field-defs
+;(defn get-create-field-str-DEPR "Return fieldsnames selected by 'sel' as quotes strings 
+;  followed by the rest of the string (type, default-values, etc..) 
+;  and interposed by commas(for usage in a create statement).
+;   Deprecated: use get-sql-field-defs."
+;  [flds sel]
+;  (let [lpf "(get-create-field-str): "
+;        fldNames (map #(nth flds %) sel)
+;        _ (trace lpf "selected fldNames: " fldNames)
+;        fldNames (letfn [(quote-first [org]
+;                                      (let [org (str/trim org)]
+;                                        (if (= (first org) \")
+;                                          org  ;; return unmodified
+;                                          (let [s (str/split org #"\s+")
+;                                                head (qs (first s))
+;                                                tail (str/join " " (rest s))]
+;                                            (str head "\t" tail)))))]
+;                        (map quote-first fldNames))
+;        _ (trace "after quoting fldNames: " fldNames)
+;        fldNames  (interpose ", " fldNames)]
+;    (apply str fldNames)))
 
 (defn get-select-field-str 
   "Return fieldsnames selected by 'sel' as quotes strings followed interposed by commas(for usage in a select statement)."
@@ -327,6 +332,58 @@
        (str/join ", " fldNames))))
 
 
+(defn get-sql-field-defs 
+  "Get the field definitions as used in a create-statement "
+  [flds]
+  {:pre [(sequential? flds)]}
+  (let [lpf "(get-sql-field-defs): "
+        ;; processing sting elements
+        quote-first (fn [org]
+                      ;; quote the first word of a string (assumed to be the field-name)
+                      (let [org (str/trim org)]
+                        (if (= (first org) \")
+                          org  ;; return unmodified
+                          (let [s (str/split org #"\s+")
+                                head (qs (first s))
+                                tail (str/join " " (rest s))]
+                            (str head "\t" tail)))))
+        ;; processing map elements
+        boolean? (fn [x] (= (type x) java.lang.Boolean))
+        get-default  (fn [default]
+                       (cond 
+                         (boolean? default) (if default "TRUE" "FALSE")
+                         (string? default)  (sqs default)
+                         (number? default)   (str default)
+                         ;;  add a date type and handling of now() via special constants of hashmaps
+                         :else (vExcept/throw-except lpf "default value: " default " could not be interpreted as boolean, string or number")))
+        get-type (fn [tpe]
+                   (case tpe
+                     (:string :text) "TEXT"
+                     (:integer :int) "INTEGER"
+                     :serial         "SERIAL"
+                     (:bool :boolean) "BOOLEAN"
+                     (:double :dbl)  "DOUBLE PRECISION"
+                     tpe
+                     ))
+        process-descr    (fn [fld]
+                           (let [{:keys [nme tpe constraint default]} fld
+                                 allowedKeys #{:nme :tpe :constraint :default}
+                                 unknownKeys (set/difference (set (keys fld)) allowedKeys)]
+                             (when (seq unknownKeys)
+                               (vExcept/throw-except lpf "Unknown keys: " unknownKeys "in field " fld " (only allowed keys are: " allowedKeys ")"))
+                             (when (not (and nme tpe))
+                               (vExcept/throw-except lpf "fields :nme and :tpe are manditory. Received: " fld))
+                             (str (qs (name nme)) "\t" (get-type tpe) 
+                                  (when constraint (str " " constraint))
+                                  (when default (str " DEFAULT " (get-default default))))))  ;; TODO: improve the type-sensitivity of constraints.
+        create-field-def (fn [fld]
+                           (let [tpe (type fld)]
+                             (cond 
+                               (string? fld) (quote-first fld)
+                               (map? fld)    (process-descr fld)
+                               :else (vExcept/throw-except lpf "could not process field " fld " of type " (type fld)))))]
+    (str/join ", " (map create-field-def flds))))
+
 
 (defn create-table "Create a table 'schema'.'tblName' with fields 'fields' if it does not exist yet. 
   If 'dropIt' is true than it tries to drop the table first via a drop CASCADE!
@@ -334,7 +391,8 @@
   [schema tblNme fields dropIt]
   (let [lpf "(create-table): "
         qTblNme (qsp schema tblNme)
-        flds (get-create-field-str fields (range (count fields)))
+        ;;flds (get-create-field-str fields (range (count fields)))
+        flds (get-sql-field-defs fields)
         drop (format "DROP TABLE IF EXISTS %s CASCADE;" qTblNme)
         qry (format "CREATE TABLE %s (%s);"
                     qTblNme flds) ]
@@ -427,66 +485,9 @@
   )
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;  Function to fill a table based on a field-definition
-;;  Can be used to generate denormalized tables, where each
-;;  column has it's own sql-query.
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-(defn fill-table "fill the table 'schema'.'tblNme' using the query defined by 'fldDef'.
-The 'fldDef' is a vector containing a hash-map per table-item with keys
-  - 'fld':  field in the target table,
-  - 'type': type of the fields
-  - 'src' : name of the matching field from the alias.
-  - 'def' : def of the query that retrieves the fields.
-All queries are LEFT JOIN-ed on the primary key of the target-table. 
-(see patientRecent.clj for an example of usage.)"
-  [schema tblNme fldDef]
-  (letfn [(create-left-join [qIdField alias matching code]
-             (if code
-               (let [aliasId (qsp alias matching)
-                     select  (str "(" code ") AS " alias)]
-                 (str " LEFT JOIN " select " ON " qIdField " = " aliasId "\n"))
-               ""))  ;; no code, so return the empty string
-          ]
-    (let [lpf "(vSql/fill-table): "
-          ;; head is the first field. Treated separately
-          head  (first fldDef)
-          idField (:fld head)
-          srcCode (str/trim (:def head))
-          srcAlias "keytbl"
-          qIdField (qsp srcAlias idField)
-          ;; process the rest (will become the left-joins)
-          fldDef (rest fldDef)
-          src   (map :src fldDef)
-          tar   (map :fld fldDef)
-          code  (map :def fldDef)
-          matching (map #(if-let [m (:matching %)] m idField)  fldDef)
-          alias (map #(str (str/lower-case %1) "__" (str/lower-case %2))
-                     src tar)
-          tar   (map qs tar)
-          srcs  (apply str (interpose ", " (cons qIdField src)))
-          tars  (apply str (interpose ", " (cons (qs idField) tar)))
-          ljoins (map #(create-left-join  qIdField %1 %2 %3)
-                      alias matching code)
-          ljoins (apply str ljoins)
-          qry  (str "  INSERT INTO " (qsp schema tblNme) "(" tars ")\n"
-                    "  SELECT " srcs "\n"
-                    "  FROM " srcCode " AS " srcAlias "\n"
-                    ljoins ";")
-          ]
-      (debug "Executing query: " qry)
-      (println "\n\nExecuting query (println): " qry "\n\n")
-      (sql/do-commands qry)
-      )))
-
-
-(defn get-create-fields-fldDef 
-  "Extract the fields definition for the create-statement from the 'fldDef'. 
-   (used to create a table that later will be filled via (fill-table), see above."
-  [fldDef]
-  (map #(str (:fld %) "  " (:type %)) fldDef))
+;;;;;;;;;;;;;;;;;
+;; fill-table moved to vinzi.eis.bedr.patientRecent.clj, as this namespace remained the only user of function fill-table
+;;
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -73,9 +73,12 @@
   (Furthermore this function has additional logging and error-reporting that is not in (io/file)"
   [base fName]
   (let [lpf "(filename): "
+        base (str base)
         base (if (#{"~" (str "~" FileSep)} (str/trim base))
                (get (System/getenv) "HOME")
                                base)]
+    (when (or (nil? fName) (not (string? fName)))
+      (vExcept/throw-except lpf "invalid value for fName: " fName))
     (if (= 0 (count (str/trim base)))
       (do
         (warn lpf "Base directory is empty, so return filename unmodified: "
@@ -207,14 +210,15 @@
 
 (defn drop-folder 
   "Drop folder, by first dropping it's contents. When passing 'false as second argument the folder will not be dropped, but only its contents."
-  ([folder] drop-folder true)
+  ([folder] (drop-folder folder true))
   ([folder dropFolder]
   {:pre [(string? folder) (= (type dropFolder) java.lang.Boolean)]}
   ;; check existence first?
+    (debug "recursively droppdropping: " folder)
   (doseq [f (-> folder
               (java.io.File. )
               (file-seq )
-              (#(if dropFolder % (rest %)))
+              (#(if dropFolder % (rest %))) ;; take folder out of the sequence if it shouldn't be dropped.
               (reverse ))]
     (.delete f))))
 
@@ -265,7 +269,7 @@
 (defn walk-fs "Perform a recursive walk over the file-system and apply action to each node (DFS). 
 The 'actOnDir' flag tells whether the action should be applied to a directory before being applied to the files >0, afterward <0 or neither 0 (default-value is don't apply action to directories).
 (Action is not applied to top-level directory)."
-  ;; TODO:
+  ;; TODO: See drop-folder
   ;; a more idiomatic approach is based on:
   ;;  ;;   (doseq [f (reverse (file-seq (io/file d)))]
   ;;      (action f))
@@ -312,8 +316,8 @@ The 'actOnDir' flag tells whether the action should be applied to a directory be
 ;; open a lazy sequence of files
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn file-only-seq "Return a sequence of file-object that correspond to
-  files. Directories are filtered out of the sequence.
+(defn file-only-seq "Return a recursive sequence of file-object that correspond to
+  files and files in sub-folders. Directories are filtered out of the sequence.
   ('loc should be a string or a java.io.File.)
    If filemask is given it will be applied as a filter over filenames,
    the path-mask is applied over the canonical path including the file name."

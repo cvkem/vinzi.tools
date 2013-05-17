@@ -19,6 +19,7 @@
   ;; testing sqs
   (are [x res] (= (vSql/sqs x) res)
        "test"        "'test'"
+       "t'est"        "'t''est'"  ;; single quotes are expanded.
        "'test'"    "'test'")
   ;; unbalanced quotes throw exception
   (are [x res] (thrown? Exception (vSql/sqs x))
@@ -66,6 +67,30 @@
          {:classname "org.postgresql.Driver", :subprotocol "hsqldb:hsql", :subname "//192.158.56.1:9001/hibernate", :user "user", :password "password"})
       " Failure to remove the 'jdbc:' prefix")
   )  
+
+(deftest test-get-sql-field-defs
+  (are [inp res] (= (vSql/get-sql-field-defs inp) res)
+       ;; string fields
+       ["a integer"]      "\"a\"\tinteger"
+       ["a \t integer"]   "\"a\"\tinteger"
+       ["a_B    integer"]  "\"a_B\"\tinteger"
+       ["a integer" 
+        "a_B    TEXT PRIMARY KEY"]      "\"a\"\tinteger, \"a_B\"\tTEXT PRIMARY KEY"
+       ;; map-based descriptor
+       [{:nme "a"    :tpe :string}]   "\"a\"\tTEXT"
+       [{:nme :a    :tpe :string}]   "\"a\"\tTEXT"
+       [{:nme "a"    :tpe :int}]   "\"a\"\tINTEGER"
+       [{:nme "a"    :tpe "InTeGeR"}]   "\"a\"\tInTeGeR"
+       [{:nme "a"    :tpe :string :default ""}]   "\"a\"\tTEXT DEFAULT ''"
+       [{:nme "a"    :tpe :string   :constraint "PRIMARY KEY" :default ""}]   "\"a\"\tTEXT PRIMARY KEY DEFAULT ''"
+       [{:nme "a"    :tpe :int :default -1 :constraint "NOT NULL"}]   "\"a\"\tINTEGER NOT NULL DEFAULT -1"
+  )
+  (are [inp] (thrown? Exception (vSql/get-sql-field-defs inp))
+       [{:tpe :integer}]   ;; no :nme
+       [{:nme "a"}]   ;; no type
+       [{:nme "a"    :tpe :string :constrained "NOT NULL"}]   ;;  constraint spelled incorrectly
+  ))
+
 (comment ;; old version using map-compare
 (deftest gendb
   (is (vMap/map-compare (vSql/generate-db {:db-name "hibernate" :user "user" :password "password"})
