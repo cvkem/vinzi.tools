@@ -93,7 +93,14 @@
 
 (defn get-properties 
   "Get the properites of a file, keywordize them and transform them according to typeMap."
-  [propFile defMap typeMap]
+  ([propFile propDefs]
+    (let  [;; split the props-map in the two required maps
+           ;; this version is the preferred interface (change vinzi.eis.properties
+           typeMap (into {} (map #(vector (:name %) (:type %)) propDefs))
+           defMap  (into {} (map #(vector (:name %) (:default %)) propDefs))]
+      ;; TODO: add some checks on validity of sub-maps (wrong input)
+      (get-properties propFile defMap typeMap)))
+  ([propFile defMap typeMap]
   (let [lpf "(get-properties): "
         report-missing-def (fn [props]
                              (let [pKeys (set (keys props))
@@ -102,16 +109,18 @@
                                (when (seq missingDef)
                                  (warn lpf "the properties: " (str/join ", " missingDef) "don't have a definition in the typeMap, and will be dropped"))
                                props))]
-    (-> propFile
-      (vProp/read-properties)
-      ;;((partial show " props="))
-      (vMap/keywordize false)
+    (-> (if (.exists (java.io.File. propFile))
+          (-> propFile
+            (vProp/read-properties)
+            ;;((partial show " props="))
+            (vMap/keywordize false))
+          {}) ;; start with empty map and add the defaults.
       ;;((partial show " keywordized="))
       (report-missing-def)
       ((partial into defMap ))
       ;;((partial show " with defaults="))
       ((vMap/get-map-type-convertor typeMap) )
       ((partial show " after type-conversion="))
-      )))
+      ))))
 
 

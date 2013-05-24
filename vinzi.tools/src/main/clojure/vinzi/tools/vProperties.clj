@@ -10,9 +10,14 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
+;;    Look at vinzi.tools.vParams for a more high-level interface with utilities 
+;;       - automatic type conversion
+;;       - command-line overrides, 
+;;       - etc..
+;;
 ;;    reading and writing properties
 ;;     based on clojure.contrib.java-utils  (clojure 1.2)
-;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 (defn as-prop-str
