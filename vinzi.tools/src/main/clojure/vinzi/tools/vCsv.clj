@@ -72,18 +72,10 @@
                      (map keyword))
           _ (debug lpf "with headers: " (str/join ", " header))
           data   (next csv)
-          ;; speedup loop below by using a transient data-structure
-;; performance toMap when processing a file containing 1000 data-rows)
-;;          to-map (fn [row]
-;;                   (into {} (map #(vector %1 (str/trim %2)) header row)))]
-          ;; 2650 ms  so 2,6 ms per row
           to-map (fn [row]
                    (zipmap header (map str/trim row)))
           ;; clojure.java.jdbc uses zipmaps to (see resultset-seq  in file jcdb.clj)
-          ;; 2650 ms  so 2,6 ms per row
-          to-map (fn [row]
-                   (apply hash-map (interleave header (map str/trim row))))
-          ;; 2610 ms  so 2,6 ms per row
+          ;; 2650 ms  so 2,6 ms per row, same timing here
           ]
       (map to-map data))))
 
@@ -135,29 +127,6 @@
         ;; (a template for a lazy-open is given below)
         (doall csvMap)))))
 
-(comment ;; test performance
-;; read-csv-map seems to be slow. Timing on 114800 rows:
-;;
-(def csvFile "resources/scipio/atcMapping.csv")
-;;
-(time (def bareRows 
-                        (with-open [inp (io/reader csvFile)]
-                          (doall (csv/read-csv inp :separator \;)))))
-;;"Elapsed time: 236.999671 msecs"
-;;  or 1e-6 per row
-;;
-;; 
-(time (def rows (vCsv/read-csv-map csvFile :separator \;)))
-;;"Elapsed time: 3000 msecs"
-;;  0.03 second per row
-
-;; when adding the  (doall at the line 'csvData (doall (apply csv/read-csv f opts))'
-;; the timing reduces in an extreme way to
-;; "Elapsed time: 3170.485984 msecs"
-;;  or 0.03 per row
-
-
-)
 
 
 (defn csv-columnMap
@@ -414,8 +383,40 @@
   (map #(zipmap ks (map % ks)) xrel))
 
 
+
+
+(defn parse-csv-str 
+  "Cleanse the string by removing trailing white-spaces per line and trailing \newline (at end of file).
+   Next the string is parsed as .csv"
+  [data]
+  (let [lpf "(parse-csv-str): "]
+  (-> data
+    (str/replace #"([^\"])\"[\s]+\n" "$1\"\n")  ;; strip white-space between non-escaped \" and end-of-line.
+    (str/replace #"\n*$" "") ;; strip all trailing newlines
+    (str/replace #"$" "\n")
+    (java.io.StringReader. )
+    (csv/read-csv  :separator \;)
+    (#(do (debug lpf "after read-csv: " 
+                 (def ^:dynamic debLast %) (with-out-str (pprint %))) %))
+    (csv-to-map )
+    (doall))))   ;; NOTE: this doall is essential to prevent the java.io.StringReader is garbage-collected to early
+    ;; TODO: check whether doall is realy needed
+
+
 ;; Template for a lazy-open-file that closes the file after reading the
 ;; last line
+
+
+
+(defn pprint-csv [params numLines]
+  (let [make-sorted (fn [m]
+                      (apply sorted-map (interleave (keys m) (vals m))))
+        process-lines (fn [recs]
+                        (doseq [r (take numLines recs)]
+                          (pprint (make-sorted r))))]
+  (read-csv-lazy params process-lines)))
+
+
 
 ;; (def lazy-open
 ;;   (letfn [(read-line [rdr]
@@ -427,20 +428,36 @@
 ;;     (fn [file]
 ;;       (lazy-seq (read-line (clojure.java.io/reader file))))))
 
-
-(defn pprint-csv [params numLines]
-  (let [make-sorted (fn [m]
-                      (apply sorted-map (interleave (keys m) (vals m))))
-        process-lines (fn [recs]
-                        (doseq [r (take numLines recs)]
-                          (pprint (make-sorted r))))]
-  (read-csv-lazy params process-lines)))
-
 (comment ;; example
   (def x (with-open [f (io/reader "/tmp/test.csv")]
          (doall (csv/read-csv f :separator \;))))
 
   (csv-to-map x)
+)
+
+
+(comment ;; test performance
+;; read-csv-map seems to be slow. Timing on 114800 rows:
+;;
+(def csvFile "resources/scipio/atcMapping.csv")
+;;
+(time (def bareRows 
+                        (with-open [inp (io/reader csvFile)]
+                          (doall (csv/read-csv inp :separator \;)))))
+;;"Elapsed time: 236.999671 msecs"
+;;  or 1e-6 per row
+;;
+;; 
+(time (def rows (vCsv/read-csv-map csvFile :separator \;)))
+;;"Elapsed time: 3000 msecs"
+;;  0.03 second per row
+
+;; when adding the  (doall at the line 'csvData (doall (apply csv/read-csv f opts))'
+;; the timing reduces in an extreme way to
+;; "Elapsed time: 3170.485984 msecs"
+;;  or 0.03 per row
+
+
 )
 
 
