@@ -93,6 +93,8 @@
        "~ /"  "test"  "~ /test"
        ;; moving to parent folders
        "/folder1/folder2/" "../file"   "/folder1/file"
+       nil "./ble" "./ble"
+       nil  "~/ble" (str (get (System/getenv) "HOME") "/ble")
 ;       "/folder1/folder2/" "../../file"   "/file"
 ;       "/folder1/folder2/" "../"   "/folder1"
        

@@ -67,43 +67,43 @@
 
 
 (defn filename 
-  "Generate a filename from 'base / filename'. If filename is an absolute path then 'base' is ignored.
+  "Generate a filename from 'base / filename'. If filename is an absolute path (or home-path or './'-path) then 'base' is ignored.
    contrary to (io/file parent child) this function generates strings instead of file-objects
   and it accepts children that start with a '/' (see above).
+  The '~' is expanded to an absolute path, while './' is left as is.
   (Furthermore this function has additional logging and error-reporting that is not in (io/file)"
-  [base fName]
-  (let [lpf "(filename): "
-        base (str base)
-        base (if (#{"~" (str "~" FileSep)} (str/trim base))
-               (get (System/getenv) "HOME")
-                               base)]
-    (when (or (nil? fName) (not (string? fName)))
-      (vExcept/throw-except lpf "invalid value for fName: " fName))
-    (if (= 0 (count (str/trim base)))
-      (do
-        (warn lpf "Base directory is empty, so return filename unmodified: "
-               fName)
-        fName)
-      (if (full-path? fName)
+  ([fName] (filename nil fName))
+  ([base fName]
+    (let [lpf "(filename): "
+          base (str base)
+          base (if (#{"~" (str "~" FileSep)} (str/trim base))
+                 (get (System/getenv) "HOME")
+                 base)
+          fName (if (home-path? fName)
+                  (filename (get (System/getenv) "HOME")  (str/replace fName (re-pattern (str "^\\s*~" FileSep)) ""))
+                  fName)]
+      (when (or (nil? fName) (not (string? fName)))
+        (vExcept/throw-except lpf "invalid value for fName: " fName))
+      (if (= 0 (count (str/trim base)))
         (do
-          (warn lpf "fName represents an absolute path: '" fName "',\n"
-                "therefore base: '" base "' is NOT added as prefix.")
-          (if (home-path? fName)
-            (filename (get (System/getenv) "HOME")  (str/replace fName (re-pattern (str "^\\s*~" FileSep)) ""))
-          fName))
-        (let [process-parents (fn [base fName]
-                               (if (parent-path? fName)
-                                 (recur (strip-last-folder base) (strip-parent-prefix fName))
-                                 [base fName]))
-              ;;_  (println "base=" base "  fName="fName)
-              [base fName] (process-parents base fName)
-              ;;_  (println "base=" base "  fName="fName)
-              separator (if (= FileSep (str (last base))) "" FileSep)
-              res (str base separator fName)]
-          (trace lpf "Generated filename: " res)
-          res)))))
-
-
+          (warn lpf "Base directory is empty, so return filename unmodified: "
+                fName)
+          fName)
+        (if (full-path? fName)
+          fName
+          (let [process-parents (fn [base fName]
+                                  (if (parent-path? fName)
+                                    (recur (strip-last-folder base) (strip-parent-prefix fName))
+                                    [base fName]))
+                ;;_  (println "base=" base "  fName="fName)
+                [base fName] (process-parents base fName)
+                ;;_  (println "base=" base "  fName="fName)
+                separator (if (= FileSep (str (last base))) "" FileSep)
+                res (str base separator fName)]
+            (trace lpf "Generated filename: " res)
+            res))))))
+  
+  
 (defn get-current-dir 
   "Get the canonical path (no trailing /)" 
   []
