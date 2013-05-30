@@ -45,9 +45,24 @@
   "Returns a string, the name of the current Clojure function"
   `(-> (Throwable.) .getStackTrace first .getClassName unmangle))
 
+(defn stringify-funcs 
+  "Recursively stringify all functions in the provided data for output to an edn.
+   Otherwise the progress-edn can not be read as it can not generate the functions."
+  [data]
+  (if (map? data)
+    (zipmap (keys data) (map stringify-funcs (vals data)))
+    (if (sequential? data) 
+      (let [d (map stringify-funcs data)]
+        (if (vector? data) (vec d) d))
+      ;; the actual transform function symbols to a string.
+      (if (fn? data) (str "fn: " data) data))))
+
+
 (defn progress-entry-func 
   "Add a progress.edn entry with 'currFunc', 'process' 'entity' and 'data' (only entity is optional).
-   Prefered use via macro (progress-entry)."
+   Prefered use via macro (progress-entry).
+   If the data contains function symbols these will be translated to 'fn: name', otherwise the 
+   .edn file is not readible. "
   ([currFunc process] ;; just a checkpoint with a tag (process) 
     (progress-entry-func currFunc process nil nil))
   ([currFunc process data]  ;; entry with :entity nil 
@@ -68,7 +83,7 @@
                             :timestamp (java.util.Date.)
                             }
                          (#(if (not (nil? entity)) (conj % [:entity entity]) %))
-                         (#(if (not (nil? data)) (conj % [:data data]) %)))]
+                         (#(if (not (nil? data)) (conj % [:data (stringify-funcs data)]) %)))]
           (when (or (not (number? log-line-nr)) (< log-line-nr 1))
             (warn " line-count infom missing: " ednEntry))
         ;;(println " going to add an entry: " ednEntry)

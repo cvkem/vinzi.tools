@@ -12,9 +12,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def FileSep (if (= java.io.File/separator "\\")
-                  "\\\\" "/"))
+                  "\\" "/"))
+;;                  "\\\\" "/"))
 
-(def reFileSep (re-pattern FileSep))
+(def reFileSep (re-pattern (if (= FileSep "\\")
+                  "\\\\" FileSep)))
+;;                  "\\\\" "/")FileSep))
 
 (defn absolute-path? "Check whether 'fName' is an absolute path (starts with 'theSep'). To detect './' relative path too use full-path."
   [fName]
@@ -107,7 +110,7 @@
 (defn get-current-dir 
   "Get the canonical path (no trailing /)" 
   []
-  (.getCanonicalPath (java.io.File. ".")))
+  (.getAbsolutePath (java.io.File. ".")))  ;; .getCanonical might fail on windows (canonical uses '/')
 
 (defn extend-path "Extend a 'path' by prefixing the current directory to relative paths.
    If the optional 'force' parameter is true than path starting with './' will be expanded too." 
@@ -338,7 +341,7 @@ The 'actOnDir' flag tells whether the action should be applied to a directory be
        (if dirmask
          (let [get-dir (fn [f]
                          (-> f
-                             (.getCanonicalPath)
+                             (.getCanonicalPath)  ;; use canonical such the / is the separator
                              (str/split #"/")
                              (drop-last)
                              (last)))

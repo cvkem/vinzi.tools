@@ -19,8 +19,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(defn replace-params "Takes 'code' (sequence of strings) and 
- performse the parameter substitution as defined in 'parmams' (keywords translated to strings).
+(defn replace-params "Takes 'code' (multi-line string) and 
+ performs the parameter substitution as defined in 'params' (keywords translated to strings).
  The result is a map containing :code (as a string) and 
  :replCnt (a map showing the number of replacements.)" 
   [code params]

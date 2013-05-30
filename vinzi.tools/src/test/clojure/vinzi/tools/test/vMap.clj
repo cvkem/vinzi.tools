@@ -112,5 +112,33 @@
     (is (= (vMap/keywordize inp) {:Test 1 :KEYW 2}))
     (is (= (vMap/keywordize inp true) {:test 1 :keyw 2}))))
 
+(deftest test-checked-add-kv
+  (are [curr add  res] (= (vMap/checked-add-kv curr add) res)
+       {} [:a 1] {:a 1}
+       {:b 2} [:a 1] {:a 1 :b 2} 
+       {} ["a" 1] {"a" 1}
+       {:b 2} ["a" 1] {"a" 1 :b 2} 
+       
+       )
+  (are [kvSeq res]  (= (vMap/kvSeq-to-hashmap kvSeq) res)
+       '([:a 1])  {:a 1}
+       '([:a 1] ["b" 2])  {:a 1 "b" 2})
 
+  (are [hmSeq kkey kval res]  (= (vMap/hmSeq-to-hashmap hmSeq kkey kval) res)
+       '({:k :a :v 1}) :k :v  {:a 1}
+       '({:k :a :v 1} {:k :b :v 2}) :k :v  {:a 1 :b 2}
+       '({:k :a :v 1} {:k "b" :v 2}) :k :v  {:a 1 "b" 2}
+       '({:k :a "kval" 1} {:k "b" "kval" 2}) :k "kval"  {:a 1 "b" 2}
+       )
+  )
 
+(are [hm add res] (= (vMap/checked-merge hm add) res)
+   {:a 1} {:b 2}  {:a 1 :b 2}
+   {} {:b 2}  {:b 2}
+)
+
+(are [hm add] (thrown? Exception (vMap/checked-merge hm add))
+   {:a 1} {:a 2} 
+   {:a 1} {:a 1} 
+   {:a 1 :b 2} {:b 2} 
+)

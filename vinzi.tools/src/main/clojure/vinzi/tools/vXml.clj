@@ -6,7 +6,9 @@
              [xml :as xml]
              [set :as set]]
             [debug-repl [debug-repl :as dr]]
-            [vinzi.tools [vExcept :as vExcept]]))
+            [vinzi.tools 
+             [vExcept :as vExcept]
+             [vMap :as vMap]]))
 
 (def validTagDescrKeys #{:keyMap :idAttr :keepId :allowContent :groupTags})
 
@@ -50,13 +52,16 @@
  ;;         _ (println  "\t using name "  nme (str (when idAttr (str " based on attribute " idAttr))))
           process-content (fn [attrs content]
                             ;; All none-xml elements stored under tag :xml-content, and the xml-elements are processed.
-                            (let [check-conj (fn [cumm kv]
-                                               ;; 
-                                               (let [k (first kv)]
-                                                 (if (k cumm)
-                                                   (vExcept/throw-except lpf "key=" k " is already present in map for " nme "\n\t map contains: " cumm
-                                                                         "\n\t (notice xml is processed depth-first, so there might also be unnoticed errors higher up in the tree)")
-                                                   (conj cumm kv))))
+                            (let [errPrefix (str "Error for item: " nme "(notice xml is processed depth-first, so there might also be unnoticed errors higher up in the tree)")
+                                  check-conj (fn [cumm kv] 
+                                               (vMap/checked-add-kv cumm kv errPrefix))
+;                                  check-conj (fn [cumm kv]
+;                                               ;; 
+;                                               (let [k (first kv)]
+;                                                 (if (k cumm)
+;                                                   (vExcept/throw-except lpf "key=" k " is already present in map for " nme "\n\t map contains: " cumm
+;                                                                         "\n\t (notice xml is processed depth-first, so there might also be unnoticed errors higher up in the tree)")
+;                                                   (conj cumm kv))))
                                   xmlElem (filter (complement string?) content)
                                   strElem (filter string? content)
                                   xmlElem (->> (map #(xml-to-hashmap % keyMap forceTagDef) xmlElem)

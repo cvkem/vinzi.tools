@@ -4,6 +4,7 @@
         [clojure.tools [logging :only [error info trace debug warn]]])
    (:require [clojure.string :as str]
              [vinzi.tools
+              [vExcept :as vExcept]
               [vDateTime :as vDate]]))
 
 (defn get-map-comparator 
@@ -177,6 +178,33 @@
   [x y]
      (let [srt-map #(apply sorted-map (apply concat (seq %)))]
        (= (srt-map x) (srt-map y))))
+
+
+ (defn checked-add-kv 
+   "A key is added if it does not exist in the hashmap. Otherwise an exception is raised"
+   ([cumm kv ] (checked-add-kv cumm kv ""))
+   ([cumm kv errPrefix]
+   ;; 
+   (let [lpf "(checked-add-kv): "
+         k (first kv)]
+     (if (cumm k)
+       (vExcept/throw-except lpf  errPrefix  "key=" k " is already in map " cumm)
+       (conj cumm kv)))))
+
+(defn checked-merge 
+  "Merge add into cumm and raise exception on duplicate keys (overwritting keys)."
+  [cumm add]
+  (reduce checked-add-kv cumm add))
+
+(defn kvSeq-to-hashmap 
+  "Prepare a hash-map from a key-value sequence. Duplicate keys are not allowed."
+  [kvSeq]
+    (reduce checked-add-kv {} kvSeq)) 
+
+(defn hmSeq-to-hashmap 
+  "Prepare a hash-map from a sequence of hashmaps using kkey as key and kval as value in the new hashmap."
+  [hmSeq kkey kval]
+  (kvSeq-to-hashmap (map #(vector (% kkey) (% kval)) hmSeq)))
 
 
 (comment 

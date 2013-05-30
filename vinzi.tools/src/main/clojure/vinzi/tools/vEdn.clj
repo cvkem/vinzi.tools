@@ -43,24 +43,39 @@
 
 (defn read-edn-file 
   "Reads a single form of a file. If you like to put multiple data-item in a file, store it in a container (list, vector, hash-map).
-   or use read-edn-lazy-file, which assumes the file/stream contains a sequence of objects."
+   or use read-edn-lazy-file, which assumes the file/stream contains a sequence of forms."
   [fName]
   (with-open [stream (java.io.PushbackReader. (java.io.FileReader. fName))]
     (edn/read stream)))
 
-(def debugging true)
+(def ^:dynamic debugging true)
 
+ 
 (defn read-edn-lazy-file 
   "Reads a lazy sequence of forms from a file."
   [fName]
-  (let [read-entry (if debugging
-                     (fn [strs]
-                       (println "next string: " (first strs))
-                       (let [res (edn/read-string (first strs))]
-                         (println "produces data:") (pprint res)
-                         res))
-                       edn/read-string)]
-  (map edn/read-string (lazy-file-open fName))))
+  (let [lpf "(read-edn-lazy-file): "
+;        read-entry (if debugging
+;                     (fn [strs]
+;                       (println "next string: " (first strs))
+;                       (let [res (edn/read-string (first strs))]
+;                         (println "produces data:") (pprint res)
+;                         res))
+;                       edn/read-string)
+        read-string-ext (fn [form]
+                          (try
+                            (when debugging
+                              (def ^:dynamic last-edn-line form)
+                              (println "Next edn-string: " form))
+                            (let [form (edn/read-string form)]
+                              
+                              form)
+                            (catch Throwable t 
+                              (let [msg (str "during (edn/read-str \"" form "\") " (.getMessage t))]
+                                (println msg)
+                                (error msg))
+                              (throw t))))]
+  (map read-string-ext (lazy-file-open fName))))
 
 
 (defn write-edn-file
