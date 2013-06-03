@@ -151,12 +151,13 @@
           showLevels (set (map keyword showLevels))
           org-fName fName
           fName (let [rw (vFile/file-exists fName)]
-                     (if (or (not rw)            ;; file does not exists or not folder access
+                     (if (or (not rw)            ;; file does not exists or no folder access
                              (not (:write rw)))  ;; no write permission
                        (let [newName (vFile/get-filename fName)
                              msg (str lpf "Logfile: " fName "does not exists, trying " newName " in current folder")]  
                          (debug msg) 
-                         ;; we could test whether the log-file is updated by the statement above.
+                         ;; we could test whether the log-file is updated by the statement above
+                         ;; to see whether this is the correct log-file (however, requires a sleep before testing
                          (println msg)
                          newName)  ;; try current folder 
                        fName))
@@ -177,7 +178,7 @@
                        "add log-statement to force opening of the file "
                        "before calling the 'log-tracker' closure.")]
           (println msg)
-          (error msg))
+          (error msg))   ;; TODO/NOTE: shouldn't this be a throw except?
         ;; file exists so, continue creation
         (let [fr (java.io.FileReader. fName)
               ;;_ (println " file exists")

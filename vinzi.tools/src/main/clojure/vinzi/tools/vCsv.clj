@@ -339,7 +339,7 @@
   "Map a sequence of maps to a format that can be output to a csv (first row contains column-names, subsequent rows the data).
    If a second parameter is provided it will be uses as the sequence of keys to be included."
   ([data]
-    (map-seq-to-csv (keys (first data))))
+    (map-seq-to-csv data (keys (first data))))
   ([data k]
   (let [;; prepare ordered keys (but retain type (keyword, string)
         k (->> k
@@ -358,11 +358,23 @@
   ;; (["a" "b"] [1 2] [3 \c])
   )
 
+(defn check-data-type 
+  "Perform check on type of data whether it is sequential, or can be treated as a sequential."
+  [fName data]
+  (when (not (or (sequential? data)
+                 (= (type data) clojure.lang.PersistentHashSet)
+                 (associative? data)))   ;; hashmap
+    (error "(vCsv/check-data-type): data for file " fName 
+                          ". Expected sequential as data. Received data of type: " (type data))
+    (error "first data element: "(with-out-str (pprint (first data))))
+    (vExcept/throw-except "(vCsv/check-data-type): received invalid data of type: " (type data))))
+
 
 (defn write-csv-stream 
   "Write a sequence of maps (as produced by vCsv/read-csv-map) to an open steam in csv-file format.
    The keys of the first map-item will be used a keys for the full sequence."
   [stream data & opts]
+  (check-data-type "STREAMING" data)
   (let [data (map-seq-to-csv data)]
     (apply csv/write-csv stream data opts)))
 
@@ -370,6 +382,7 @@
   "Write a sequence of maps (as produced by vCsv/read-csv-map) to a csv-file again.
    The keys of the first map-item will be used a keys for the full sequence."
   [fName data & opts]
+  (check-data-type fName data)
   (with-open [out (io/writer fName)]
     ;; TODO: use write-csv-stream instead of code below
     (let [data (map-seq-to-csv data)]
@@ -380,6 +393,7 @@
   "Similar to set/project, however, missing values are patched with nil.
    (Use this instead of set/project when preparing a collection to write a csv, to prevent missing keys)"
   [xrel ks]
+  {:pre [(sequential? xrel)]}
   (map #(zipmap ks (map % ks)) xrel))
 
 

@@ -333,7 +333,17 @@
 
 
 (defn get-sql-field-defs 
-  "Get the field definitions as used in a create-statement "
+  "Get the field definitions as used in a create-statement. The fields should be either a sequence of strings, or 
+    a series of records with shape keys :nme, :tpe :constraint :default. "
+;;  example of a table definition
+;(def tModelFldDef  [{:nme "id"  :tpe :serial :constraint "PRIMARY KEY"}
+;                    {:nme "used"  :tpe :bool :default "FALSE"}
+;                    {:nme "actief" :tpe :bool :default "TRUE"}
+;                    {:nme "model" :tpe :string  :default ""}
+;                    {:nme "onderwerp" :tpe :string  :default ""}
+;                    {:nme "aanhef" :tpe :string  :default ""}
+;                    {:nme "inhoud" :tpe :string  :default ""}
+;                    {:nme "afsluiting" :tpe :string  :default ""}])
   [flds]
   {:pre [(sequential? flds)]}
   (let [lpf "(get-sql-field-defs): "
