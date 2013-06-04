@@ -21,22 +21,22 @@
 
 (defn absolute-path? "Check whether 'fName' is an absolute path (starts with 'theSep'). To detect './' relative path too use full-path."
   [fName]
-  (= FileSep (str (first (str/trim fName)))))
+  (= FileSep (str (first (str/trim (str fName))))))
 
 (defn explicit-relative-path? "Check whether 'fName' is an explicite relative path (starts with './')" 
   [fName]
-  (.startsWith (str/trim fName) (str "." FileSep)))
+  (.startsWith (str/trim (str fName)) (str "." FileSep)))
 
 
 (defn home-path? "Check whether 'fName' is a home path (starts with ~/ )."
   [fName]
-  (.startsWith (str/trim fName) (str "~" FileSep)))
+  (.startsWith (str/trim (str fName)) (str "~" FileSep)))
 
 
 (defn parent-path? "Check whether 'fName' points to a parent directory (starts with ../ )."
   [fName]
-  (or (.startsWith (str/trim fName) (str ".." FileSep))
-      (= (str/trim fName) "..")))
+  (or (.startsWith (str/trim (str fName)) (str ".." FileSep))
+      (= (str/trim (str fName)) "..")))
 
 
 (defn full-path? "Detect fully specified paths (paths that start with theSep '/' or './'."
@@ -142,6 +142,15 @@
         (str/split reFileSep)
         (last))))
 
+(defn get-filename-base 
+  "Get the filename base of a path (or a File object), so this functions strips away the path
+   and all suffixes. "
+  [path]
+  (-> path
+    (get-filename )
+    (str/split #"\.")
+    (first)))
+
 
 (defn- rw-permissions 
   "Check the permisions on an existing file object (internal function)"
@@ -197,7 +206,7 @@
   [fName]
   {:pre [(string? fName)]}
   (debug "(ensure-dir-exists): for file " fName)
-  (let [isDir? (= (last (str/trim fName)) (first FileSep))
+  (let [isDir? (= (last (str/trim (str fName))) (first FileSep))
         f  (io/file fName)]
   (if (.isDirectory f)
     (.mkdirs f)

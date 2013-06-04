@@ -54,6 +54,8 @@
                             ;; All none-xml elements stored under tag :xml-content, and the xml-elements are processed.
                             (let [errPrefix (str "Error for item: " nme "(notice xml is processed depth-first, so there might also be unnoticed errors higher up in the tree)")
                                   check-conj (fn [cumm kv] 
+                                             ;;  (println "TMP: cumm= " cumm)
+                                             ;;  (println "TMP: adding kv= "kv)
                                                (vMap/checked-add-kv cumm kv errPrefix))
 ;                                  check-conj (fn [cumm kv]
 ;                                               ;; 
