@@ -212,9 +212,13 @@
                                                (when (not= cks ks)
                                                    (let [extra (set/difference ks cks)
                                                          missing (set/difference cks ks)]
-                                                     (vExcept/throw-except lpf " Record " (when (seq missing) (str "is missing keys " (str/join "," missing)))
-                                                          (when (seq extra) (str " has extra keys " (str/join "," extra)))
-                                                          "\n\t rec=" %))) %) x)))
+                                                     (vExcept/throw-except lpf "Incorrect keys in Record: " 
+                                                                           (when (seq missing) (str "\n\tmissing keys " (str/join "," missing)))
+                                                                           (when (seq extra) (str "\n\tredundant keys " (str/join "," extra)))
+                                                          "\n\t rec=" %
+                                                          "\n\tRecord does NOT contain the correct keys.")
+                                                     )) %) 
+                                            x)))
                                identity)  ;; nothing to match against
                 csvMap (-> (apply csv/read-csv f csvOpts)
                          (showFirstThree "read-csv")

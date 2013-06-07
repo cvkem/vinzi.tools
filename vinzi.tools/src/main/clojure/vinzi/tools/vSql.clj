@@ -63,7 +63,9 @@
 (defn qsp
   "Create a double-qouted string pair for schema.table or table.field."
   [schema nme]
-  (str (qs schema) "." (qs nme)))
+  (if (seq schema)
+    (str (qs schema) "." (qs nme))
+    (qs nme)))   ;; if now schema passed "" or nil, then only return table name (defaults to 'public')
 
 
 
@@ -189,6 +191,7 @@
   ;; the alternative would be to inspect pg_tables (postgres specific)
   [schema table]
   (let [schema (strip-dQuotes schema)
+        schema (if (seq schema) schema "public")  ;; added to have 'public' as default schema
         table  (strip-dQuotes table)
         qry (format "select * from information_schema.tables WHERE table_name LIKE '%s' AND table_schema = '%s';" table schema)]
      (sql/with-query-results res [qry]

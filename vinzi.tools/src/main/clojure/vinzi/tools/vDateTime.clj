@@ -126,21 +126,22 @@
 (defn get-ymd-date 
   "Get the year month and day of 'dt' as a hash-map containing the values as integers.
   The input 'dt' should be either a date or a date-string (yyyy-mm-dd').
-  If 'dt' is omitted the current date is returned."
+  If 'dt' is omitted the current date is returned.
+  When dt is invalid as date or this an error is logged and the function returns nil."
   ([] (get-ymd-date Now))
   ([dt]
-     (let [dt (if (string? dt)
-                dt
-                (if (= (type dt) java.sql.Date)
-                  (str dt)
-                  (if (= (type dt) java.util.Date)
-                    (str (get-timestamp dt))
-                    (error "(get-ymd-date): type of " dt " not valid."))))
-           values (re-find #"(\d{4})-(\d{2})-(\d{2})" dt)
-           [year month day] (map #(Long/parseLong %) (drop 1 values))]
+     (when-let [dt (if (string? dt)
+                     dt
+                     (if (= (type dt) java.sql.Date)
+                       (str dt)
+                       (if (= (type dt) java.util.Date)
+                         (str (get-timestamp dt))
+                         (error "(get-ymd-date): type of " dt " not valid."))))]
+       (let [values (re-find #"(\d{4})-(\d{2})-(\d{2})" dt)
+             [year month day] (map #(Long/parseLong %) (drop 1 values))]
        {:year year
         :month month
-        :day day})))
+        :day day}))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
