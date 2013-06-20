@@ -11,14 +11,19 @@
 ;;   taken from vinzi.tools.fileTools
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def FileSep (if (= java.io.File/separator "\\")
+(def runningWindows (= java.io.File/separator "\\"))
+(def FileSep (if runningWindows
                   "\\" "/"))
 ;;                  "\\\\" "/"))
 
-(def reFileSep (re-pattern (if (= FileSep "\\")
+(def reFileSep (re-pattern (if runningWindows
                   "\\\\" FileSep)))
 ;;                  "\\\\" "/")FileSep))
 
+(def Home (if runningWindows
+            (get (System/getenv) "USERPROFILE")
+            (get (System/getenv) "HOME")))
+  
 (defn absolute-path? "Check whether 'fName' is an absolute path (starts with 'theSep'). To detect './' relative path too use full-path."
   [fName]
   (= FileSep (str (first (str/trim (str fName))))))
@@ -78,12 +83,17 @@
   ([fName] (filename nil fName))
   ([base fName]
     (let [lpf "(filename): "
-          base (str base)
+          unify-separator #(if runningWindows
+                             (str/replace % #"/" "\\\\")  ;; on windows remove "/" from paths (many java-utils generate canonical paths)
+                             %) 
+          base (-> base (str ) 
+                 (unify-separator ))
           base (if (#{"~" (str "~" FileSep)} (str/trim base))
-                 (get (System/getenv) "HOME")
+                 Home
                  base)
+          fName (unify-separator fName)
           fName (if (home-path? fName)
-                  (filename (get (System/getenv) "HOME")  (str/replace fName (re-pattern (str "^\\s*~" FileSep)) ""))
+                  (filename Home  (str/replace fName (re-pattern (str "^\\s*~" FileSep)) ""))
                   fName)]
       (when (or (nil? fName) (not (string? fName)))
         (vExcept/throw-except lpf "invalid value for fName: " fName))
