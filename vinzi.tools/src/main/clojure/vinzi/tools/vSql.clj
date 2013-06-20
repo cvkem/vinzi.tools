@@ -398,6 +398,24 @@
     (str/join ", " (map create-field-def flds))))
 
 
+;; added on June 8  (based on vinzi.olap4Clj.eisBedr.eisProd/get-col-defs
+(defn get-col-defs
+  "Get the database definition of records similar to 'rec'. Take care it does not contain nil-values."
+  [rec]
+  (let [derive-def (fn [[k v]]
+			{:nme k
+			 :tpe (cond
+				(= (type v) java.lang.Integer) :int
+				(= (type v) java.lang.Long) :int     ;; TODO: check whether this always fits
+				(number? v) :double
+				(string? v) :string
+				(#{java.util.Date java.sql.Date} (type v)) :Date
+				
+				)})]
+    (map derive-def rec)))
+
+
+
 (defn create-table "Create a table 'schema'.'tblName' with fields 'fields' if it does not exist yet. 
   If 'dropIt' is true than it tries to drop the table first via a drop CASCADE!
   The 'fields'-parameter is a list of field definition strings (including attributes)."
@@ -546,7 +564,8 @@
 ;;
 
 
-(defn get-col-info "get information on all columns (limited set)
+(defn get-col-info 
+  "get information on all columns (limited set) ordered by ordinal position.
    (Assumes that the table is located in the current catalog)."
   [schema tblNme]
   (let [catalog (.getCatalog (sql/connection))
@@ -556,7 +575,8 @@
                  " FROM information_schema.columns "
                  " WHERE table_catalog = " (sqs catalog)
                  "    AND table_schema = " (sqs schema)
-                 "    AND table_name = " (sqs tblNme))]
+                 "    AND table_name = " (sqs tblNme)
+                 " ORDER BY ordinal_position ASC;")]
     (trace "(get-col-info): running query: " sql)
     (sql/with-query-results res [sql]
                             (trace "received columns: " (with-out-str (pprint res)))
@@ -656,6 +676,113 @@
       (vExcept/except-str "" e))))
 
 
+
+
+
+(defn pdebug 
+  "Print arguments to screen and add a debug-statement."
+  [& args]
+  (apply println args)
+  (debug (apply str args)))
+
+(defn pwarn 
+  "Print arguments to screen and add a warn-statement."
+  [& args]
+  (apply println args)
+  (warn (apply str args)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  Adds data to table with prependTag in front.
+;;   Creates table if is does not exists
+;;
+
+(def RowNrLabel "nr")
+(def TagLabel   "tag")
+
+;; NOTE/TODO:  this function is also relevant for sql-code. So move it to the cdp package as a helper.
+(defn write-tagged-data-to-table
+  " If prependTag contains a string the data will be extended with a tag added per row. The table is
+   pruned for the tag or is recreated from scratch (if it does not exist)."
+  [targetDb dbSchema tblNme colDefs prependTag data]
+  (let [lpf "(write-data-to-table): "
+	do-rpt (fn []
+		 (let [qTbl (qsp dbSchema tblNme)     ;; if no schema given use tablename (schema becomes public. )
+		       ;; extend the data if no :nr column present
+		       ;; TODO:  forbid string arguments in colDefs?
+		       [colDefs hasNums] (let [fcd (first colDefs)]
+					   (pdebug "TMP: fcd=" fcd  "  and test " (and (map? fcd) (not= (:nme fcd) RowNrLabel)) )
+					   (if (or (and (map? fcd) (not= (:nme fcd) RowNrLabel))
+						   (and (string? fcd) (not (or (.startsWith fcd RowNrLabel)
+									       (.startsWith fcd (qs RowNrLabel))))))
+					     (let [colDefs (cons {:nme RowNrLabel :tpe :integer} colDefs)]
+					       (pdebug "TMP: colDefs modified to: " colDefs)
+					       [colDefs false])
+					     [colDefs true]))
+		       
+		       colDefs (if prependTag (cons {:nme TagLabel :tpe :text} colDefs) colDefs)
+		       tblExists  (table-exists dbSchema tblNme)
+		       lastNr  (if  (or (nil? prependTag)
+					(not tblExists))
+				 (do
+				   (pdebug lpf "Create table: " qTbl " with definition: " colDefs)
+				   (create-table dbSchema tblNme colDefs true)
+				   0)
+				 (let [qry (str "DELETE FROM " qTbl " WHERE " (qs TagLabel) " = " (sqs prependTag) ";")
+				       lastNrQry (str "SELECT MAX(" RowNrLabel ") AS lst FROM "qTbl ";")
+				       _ (pdebug lpf "run query: " lastNrQry)
+				       lastNr (sql/with-query-results res [lastNrQry]
+						(pdebug lpf " max-row returned: " res
+							"\n\t for query: " lastNrQry)
+						(if (seq res)
+						  (if-let [lst (:lst (first res))] lst 0)
+						  0))]
+				   (pdebug lpf "Extend/update table: " qTbl " with tag: " prependTag)
+				   (sql/do-commands qry)   ;; drop the existing records for this tag
+				   ;; lastNr is queried before drop, so newer records always get higher numbers then existing record 
+				   ;; (unless a mdx-query drops last recs and does not insert anything)
+				   lastNr))
+		       _ (pdebug lpf  "TMP: lastNr=" lastNr  "  and count data= " (count data))
+		       data   (if (or (> lastNr 0) (not hasNums))
+				(if hasNums
+				  (map #(if (map? %)
+					  (assoc % :nr (+ (:nr %) lastNr))
+					  (vec (cons (+ (first %) lastNr) (next %)))) data)  ;; renumber the data
+				  (map #(if (map? %1)
+					  (assoc %1 :nr %2)
+					  (vec (cons %2 %1))) data (range lastNr 10000))) ;; add/prefix number
+				data)]
+		   ;; perform some reporting
+		   (let [sRow (str/join "," (apply str (first data)))
+			 size  (count sRow)]
+		     (if (> size 6000)
+		       (pwarn lpf "String-representation is " size " bytes. Postgresql accepts records of at most 8160 bytes."
+			      "\n record might exceed this bound. ")
+		       (pdebug "string-representation of first row has size: " (count sRow))))
+		   ;; and write the data to the table
+		   (if (> (count data) 0)
+		     (let [_  (pdebug " prepepndTag=" prependTag " and (first data): " (take 3 data))
+			   data (if prependTag
+				  (map #(if (map? %)
+					  (assoc % :tag prependTag)
+					  (vec (cons prependTag %))) data)
+				  data)
+			   _  (pdebug " prependTag=" prependTag " and (first data): " (take 3 data))
+			   data (if (map? (first data))  ;; rewrite maps to vectors
+				  (let [ks (map #(keyword (:nme %)) colDefs)]
+				    (pdebug lpf " keysequence: " ks " (keys first): " (keys (first data)))
+				    (map #(map % ks) data))
+				  data)]
+		       (apply sql/insert-rows qTbl data))
+		     (pwarn lpf "ZERO data rows"))))]
+    (if targetDb
+      (let [targetDb (if (string? targetDb)
+                       (assert false)  ;;(pentConn/find-connection targetDb) ;; map strings to a conneciton.
+                       targetDb)]
+	(pdebug lpf "writing data to target-database: " (assoc targetDb :password "---"))
+	(sql/with-connection targetDb
+	  (do-rpt)))
+      (do-rpt))))   ;; operate on the existing connection.
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
