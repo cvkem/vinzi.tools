@@ -24,15 +24,15 @@
 (def joinB '({:k 1  :y 1 }
               {:k 2  :y 2 }
               {:k 2  :y 2.1 }))
-;=> (split-rec (first joinA) [:k] :jk)
+;=> (split-recs (first joinA) [:k] :jk)
 ;{:jk {:x \a}, :k 1}
-;=> (split-rec joinA [:k] :jk)
+;=> (split-recs joinA [:k] :jk)
 ;({:jk {:x \a}, :k 1} {:jk {:x "AA"}, :k 1} {:jk {:x \b}, :k 2})
 
 
 
 (deftest split-rec-test
-  (are [rec ks ok res] (= (vRel/split-rec rec ks ok ))
+  (are [rec ks ok res] (= (vRel/split-recs rec ks ok ))
        (first joinA) [:k] :jk  {:jk {:x \a}, :k 1}
        joinA [:k] :jk    '({:jk {:x \a}, :k 1} {:jk {:x "AA"}, :k 1} {:jk {:x \b}, :k 2}))
      )

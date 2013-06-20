@@ -12,7 +12,7 @@
 
 
 
-(defn split-rec 
+(defn split-recs 
   "Transform a record (map or xrel) by turning all 'kKeys' into a new record and storing all other data in a separate
    map under the 'otherKeys'."
   [rec kKeys otherKey]
