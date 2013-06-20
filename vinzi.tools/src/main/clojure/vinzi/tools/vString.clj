@@ -43,7 +43,7 @@
                     ;;(println "result of replacement: " res)
                     res))
                 ;; TODO: replace with one-liner vExcept/throw-except
-                (let [msg (str  lpf "missing param (template, replace-key, replace-val, other-params)"
+                (let [msg (str  lpf "missing one or more parameters:"
                                 "\n\ttemplate=" code
                                 "\n\treplace-key=" k
                                 "\n\treplace-val=" v
