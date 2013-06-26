@@ -399,7 +399,7 @@
 
 
 ;; added on June 8  (based on vinzi.olap4Clj.eisBedr.eisProd/get-col-defs
-(defn get-col-defs
+(defn derive-col-defs
   "Get the database definition of records similar to 'rec'. Take care it does not contain nil-values."
   [rec]
   (let [derive-def (fn [[k v]]

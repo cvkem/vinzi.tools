@@ -236,7 +236,7 @@
   ([folder dropFolder]
   {:pre [(string? folder) (= (type dropFolder) java.lang.Boolean)]}
   ;; check existence first?
-    (debug "recursively droppdropping: " folder)
+    (debug "recursive drop of: " folder)
   (doseq [f (-> folder
               (java.io.File. )
               (file-seq )
