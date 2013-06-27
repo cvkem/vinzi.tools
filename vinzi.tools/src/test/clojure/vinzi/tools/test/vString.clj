@@ -33,6 +33,36 @@
    )
 
 
+(deftest test-replace-params2
+    ;; first test parameter-substitution standalone
+  
+    (let [test-it (fn [brackets]
+                    (let [code "line %%a%%\n"
+                          expectRes "line 1\n"
+                          params {:a 1}
+                          res (vString/replace-params code params brackets)]
+                      (is (= (:code res) expectRes)
+                          "case 1: Replacement returned the correct code")
+                      (is (= (:replCnt res) {:a 1})
+                          "case 1: Replacement returned the correct replCnt map"))
+                    (let [code "line %%a%% \n%%a%%"
+                          expectRes "line 1 \n1"
+                          params {:a 1}
+                          res (vString/replace-params code params brackets)]
+                      (is (= (:code res) expectRes)
+                          "case 2: Replacement returned the correct code")
+                      (is (= (:replCnt res) {:a 2})
+                          "case 2: Replacement returned the correct replCnt map")
+                      (let [params {:a 1 :b 2}
+                            res (vString/replace-params code params brackets)]
+                        (is (= (:code res) expectRes)
+                            "case 3: Replacement retuned the correct code")
+                        (is (= (into (sorted-map) (seq (:replCnt res))) {:a 2 :b 0})
+                            "case 3: Replacement returned the correct replCnt map"))))]
+      (test-it '("%%" "%%"))
+      (test-it '("\\%\\%" "\\%\\%"))
+      ))
+
 
 
 (deftest test-convert-type-params

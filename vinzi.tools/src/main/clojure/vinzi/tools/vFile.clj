@@ -85,16 +85,18 @@
     (let [lpf "(filename): "
           unify-separator #(if runningWindows
                              (str/replace % #"/" "\\\\")  ;; on windows remove "/" from paths (many java-utils generate canonical paths)
-                             %) 
+                             %)
+          repl-home (fn [fName]
+                     (if (home-path? fName)
+                       (filename Home  (str/replace fName (re-pattern (str "^\\s*~" FileSep)) ""))
+                       fName))
           base (-> base (str ) 
                  (unify-separator ))
           base (if (#{"~" (str "~" FileSep)} (str/trim base))
                  Home
-                 base)
+                 (repl-home base))
           fName (unify-separator fName)
-          fName (if (home-path? fName)
-                  (filename Home  (str/replace fName (re-pattern (str "^\\s*~" FileSep)) ""))
-                  fName)]
+          fName (repl-home fName)]
       (when (or (nil? fName) (not (string? fName)))
         (vExcept/throw-except lpf "invalid value for fName: " fName))
       (if (= 0 (count (str/trim base)))

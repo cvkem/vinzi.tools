@@ -22,14 +22,17 @@
 (defn replace-params "Takes 'code' (multi-line string) and 
  performs the parameter substitution as defined in 'params' (keywords translated to strings).
  The result is a map containing :code (as a string) and 
- :replCnt (a map showing the number of replacements.)" 
-  [code params]
+ :replCnt (a map showing the number of replacements.)
+   By default recognizes ${..} parameters, but different brackets can be provided as third parameter." 
+  ([code params]  (replace-params code params '("\\$\\{" "\\}")))
+  ([code params brackets]
   (letfn [(replace-par
             [{:keys [code replCnt]} [k v]]
             (let [lpf "(replace-par): "]
               (if (and code k (not (nil? v)))
-                (let [pat (re-pattern (str "\\$\\{" (name k) "\\}"))
+                (let [pat (re-pattern (str (first brackets)  (name k) (second brackets)))
                       cnt (count (re-seq pat code))]
+                  (println "pattern =" pat)
                   (when (replCnt k)
                     ;; TODO: replace with one-liner vExcept/throw-except
                     (let [msg (str lpf "The parameter " k " is defined more than once")]
@@ -54,7 +57,7 @@
                cumm {:code code :replCnt {} }
                cumm (reduce replace-par cumm (seq params))]
 ;;           (trace lpf "after replacement: " (:code cumm))
-           cumm)))
+           cumm))))
 
 
 
