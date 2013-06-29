@@ -28,6 +28,8 @@
 
 (def ClassPathSep (if vFile/runningWindows ";" ":"))
 
+(def RepoBase (vFile/filename "~" ".m2/repository/"))
+
 (defn split-classpath 
   "Split a classpath in a series of classpath components."
   [cp]
@@ -46,6 +48,7 @@
 
 
 
+;; See also extract-class-path-lein that extracts class-path directly from the project (does not need to run lein and correctly insertes project-jarfile.
 (def retrieve-lein-classpath (partial retrieve-proj-classpath '("lein" "classpath") identity))
 (def retrieve-mvn-classpath  (partial retrieve-proj-classpath 
                                       '("mvn" "org.apache.maven.plugins:maven-dependency-plugin:2.6:build-classpath")
@@ -66,9 +69,113 @@
       (retrieve-mvn-classpath projFolder)
       (vExcept/throw-except "(retrieve-classpath): Couldn't find project.clj or pom.xml in folder: " projFolder))))
 
+
+(defn copy-required-jars 
+  "Copy all jars from the class-path, leaving out the source-folders. The modified path is returned."
+  [cp jarFolder]
+  {:pre [(sequential? cp) (string? jarFolder)]}
+  (println "processing for jarFolder="jarFolder)
+  (let [cp   (filter #(and (.startsWith % RepoBase) (.endsWith % ".jar")) cp)
+        copy-jar (fn [fName]
+                     (let [relDir (-> fName 
+                                      (vFile/get-path-dir)
+                                      (str/replace (re-pattern (str "^" RepoBase)) ""))
+                           tarDir (vFile/filename (vFile/filename jarFolder relDir) "")
+                           tarNme (vFile/filename tarDir (vFile/get-filename fName))]
+                       (vFile/ensure-dir-exists tarDir)
+                       (println "JarFolder=" jarFolder " and tarDir=" tarDir)
+                       (println " copy " fName " to " tarNme)
+                       (io/copy (io/file fName) (io/file tarNme)))
+                     (println "filename: " fName " does not qualify as repository jar."))]
+    (doseq [path cp]
+      (println "handling path: " path)
+      (copy-jar path))
+    cp))
+
+
+(defn copy-project-jars
+  "Copy all jars to the jarFolder (will be created)."
+  [projFolder jarFolder]
+  (let [cp (retrieve-classpath projFolder)]
+    (copy-required-jars cp jarFolder)))
+                               
+  
+(defn make-win-project 
+  "Generate a windows-batch-file a filled jar-folder (however, main project needs to be added manually)"
+  [projFolder jarFolder main-class args]
+  (let [cp (-> (retrieve-classpath projFolder)
+             (copy-required-jars jarFolder))
+        projNme (vFile/get-filename projFolder)
+        wcp (str/join ";" (map #(-> % (str/replace (re-pattern (str "^" RepoBase)) "./")
+                                  ((fn[x] (do (println "intermediate value: " x) x)))
+                                  (str/replace #"/" "\\\\")) cp))
+        cmd (str/join "\n" (list (str "REM running program " projNme " (" main-class ")")
+                      "" 
+                      (str "REM You still need to add the correct jar containing: " main-class " to the classpath ")
+                       "REM \tand to the folder-structure!!"
+                      (str "java -classpath " wcp " clojure.main -m " main-class  " " (str/join " " args))
+                      ""))]
+    (spit (vFile/filename jarFolder (str projNme ".bat")) cmd)))
+
+
+(defmacro defproject 
+  "macro used to read a lein project.clj file via read-str and translate it to a hashmap"
+  [nme version & opts]
+  (let [ver# (-> version (str/split #"\-"))]
+  `{:projNme ~(name nme) 
+    :version ~(first ver#)
+    :classifier ~(second ver#)
+    :params  (apply hash-map '~opts)}))
+
+(defn read-lein-project [projFolder]
+  (eval (read-string (slurp (vFile/filename projFolder "project.clj")))))
+
+
+(defn extract-classpath 
+  "Extract a classpath from a project as read by read-lein-project."
+  [proj]
+  {:pre [(map? proj)]}
+  (let [mainJar (vector (symbol (:projNme proj)) (let [cls (:classifier proj) 
+                                                       ver (:version proj)]
+                                                   (if (seq cls) (str ver "-" cls) ver)))
+        _ (println "mainJar="mainJar)
+        cp (-> proj (:params) (:dependencies) (concat (list mainJar)))
+        extract-cp-part (fn [pars]
+                          (println pars " of type:  " (type pars))
+                          (let [[nme verCls] pars
+                                [ver cls] (str/split verCls #"-")
+                                nme (name nme)
+                                base (vFile/get-filename nme)]
+                            (str/join "/" (list nme ver (str base "-" verCls ".jar"))))
+                            )]
+    (println "first cp = " (first cp) " of type " (type (first cp)))
+    (let [ [a b] (first cp)] (println "a=" a))
+    (println cp)
+    (map extract-cp-part cp)))
+
+(defn extract-lein-classpath 
+  "Read the project.clj from 'projFolder and extract the classpath (including the project jar-file)."
+  [projFolder]
+  (extract-classpath (read-lein-project projFolder)))
+
+(defn merge-classpaths [cp1 cp2 & cps]
+  (let [merge2 (fn [cp1 cp2]
+                 (let [cpaths (set cp1)]
+                   (reduce #(if (cpaths %2) %1 (conj %1 %2)) (vec cp1) cp2))) 
+        mrg (merge2 cp1 cp2)]
+    (if (seq cps)
+      (apply merge2 mrg cps)
+      mrg)))
+
+(defn classpath-str 
+  "Turn a sequence of classpath-items into a string in the format of the current OS (windows or linux)"
+  ([cp] (classpath-str "" cp)) 
+  ([prefix cp]
+    (str/join ClassPathSep (map #(vFile/filename prefix %) cp))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  Author pom2proj is Tom Hickley
-;;  made a few fixes to let it work with my pom-files
+;;  CvK made a few fixes to let it work with my pom-files
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- text-attrs
