@@ -18,6 +18,13 @@
 ;;       (special cases such as null, and NaN values handled too)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn escape-replace-str 
+  "In replacement strings the $ character is interpretated and replaced with groupings.
+   If you don't want this you need to escape the $-signs in the replacement string (unless they are already escaped) "
+  [replStr]
+  ;; special case for strings that start with $
+  (str/replace replStr #"([^\\])\$|^\$" "$1\\\\\\$"))
+  
 
 (defn replace-params "Takes 'code' (multi-line string) and 
  performs the parameter substitution as defined in 'params' (keywords translated to strings).
@@ -32,16 +39,19 @@
               (if (and code k (not (nil? v)))
                 (let [pat (re-pattern (str (first brackets)  (name k) (second brackets)))
                       cnt (count (re-seq pat code))]
-                  (println "pattern =" pat)
+                  ;;(println "pattern =" pat)
                   (when (replCnt k)
                     ;; TODO: replace with one-liner vExcept/throw-except
                     (let [msg (str lpf "The parameter " k " is defined more than once")]
                       (error msg)
                       (throw (Exception. msg))))
-                  (trace lpf "execute replace " pat " --> " v
-                         " in query: " code " (" cnt " replacements)")
+                  (debug lpf "execute replace " pat " --> " v)
+                  (trace lpf " in query: " code " (" cnt " replacements)")
+                  ;;(println lpf "execute replace " pat " --> " v)
+                  ;;(println lpf " cleaned: " (escape-replace-str (str v)))
+
                   (let [res 
-                  {:code (str/replace code pat (str v))
+                  {:code (str/replace code pat (escape-replace-str (str v)))
                    :replCnt (assoc replCnt k cnt)}]
                     ;;(println "result of replacement: " res)
                     res))

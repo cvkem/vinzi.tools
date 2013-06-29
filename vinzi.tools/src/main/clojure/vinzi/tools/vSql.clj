@@ -412,6 +412,8 @@
 				(#{java.util.Date java.sql.Date} (type v)) :Date
 				
 				)})]
+    ;; TODO: make a variant of this function (or change this function to accept a sequence of records
+    ;;  allows skipping first records if these contain nils (as we can not derive type-information from nil-values)
     (map derive-def rec)))
 
 

@@ -63,6 +63,15 @@
       (test-it '("\\%\\%" "\\%\\%"))
       ))
 
+(deftest test-escape-replace-str
+  (are [inp res] (= (vString/escape-replace-str inp) res)
+       "${ble}" "\\${ble}"
+       "\\${ble}" "\\${ble}"
+       "a${ble}" "a\\${ble}"
+       "a\\${ble}" "a\\${ble}"
+       "a ${ble}" "a \\${ble}"
+       "a \\${ble}" "a \\${ble}"
+  ))
 
 
 (deftest test-convert-type-params
