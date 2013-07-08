@@ -73,6 +73,14 @@
         (vExcept/throw-except lpf "Path " path " does not have a parent-prefix (../)"))
       shortenedPath)))
 
+(defn strip-dquotes 
+  "Trims spaces and balanced double quotes from a file-name/path."
+  [fName]
+  (let [fName (str/trim fName)]
+    (if (and (.startsWith fName "\"")
+             (.endsWith fName "\""))
+      (subs fName 1 (dec (count fName)))
+      subs)))
 
 (defn filename 
   "Generate a filename from 'base / filename'. If filename is an absolute path (or home-path or './'-path) then 'base' is ignored.
