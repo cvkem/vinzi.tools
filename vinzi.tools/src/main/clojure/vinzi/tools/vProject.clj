@@ -135,22 +135,35 @@
   "Extract a classpath from a project as read by read-lein-project."
   [proj]
   {:pre [(map? proj)]}
-  (let [mainJar (vector (symbol (:projNme proj)) (let [cls (:classifier proj) 
-                                                       ver (:version proj)]
-                                                   (if (seq cls) (str ver "-" cls) ver)))
+  (let [mainJar (vector (let [artifId (:projNme proj)
+                              groupId (->> (str/split artifId #"\.")
+                                        (drop-last)
+                                        (str/join "."))]
+                          (symbol (str groupId "/" artifId))) 
+                        (let [cls (:classifier proj) 
+                              ver (:version proj)]
+                          (if (seq cls) (str ver "-" cls) ver)))
         _ (println "mainJar="mainJar)
         cp (-> proj (:params) (:dependencies) (concat (list mainJar)))
         extract-cp-part (fn [pars]
-                          (println pars " of type:  " (type pars))
+;;                          (println pars " of type:  " (type pars))
                           (let [[nme verCls] pars
-                                [ver cls] (str/split verCls #"-")
+;                                _ (println "enter with nme=" nme " and verCls=" verCls)
+                                nmes (str nme)   ;; use string as name removes prefix
                                 nme (name nme)
-                                base (vFile/get-filename nme)]
-                            (str/join "/" (list nme ver (str base "-" verCls ".jar"))))
-                            )]
-    (println "first cp = " (first cp) " of type " (type (first cp)))
-    (let [ [a b] (first cp)] (println "a=" a))
-    (println cp)
+               ;;                 _ (println "nme="nme " and nmes=" nmes)
+                                [groupId artifId] (str/split nmes #"/")
+                                 artifId (if (seq artifId) artifId groupId)
+             ;;                   _ (println "nme=" nmes "  resolves to group_id=" grId "  and artifact " artId)
+                                groupId (str/replace groupId #"\." "/")
+                  ;;              [ver cls] (str/split verCls #"-")
+                                ;;base (vFile/get-filename grId)
+                                cpPart (str/join "/" (list groupId artifId verCls (str nme "-" verCls ".jar")))]
+                            ;;(println "cpPart=" cpPart)
+                            cpPart))]
+;    (println "first cp = " (first cp) " of type " (type (first cp)))
+;    (let [ [a b] (first cp)] (println "a=" a))
+;    (println cp)
     (map extract-cp-part cp)))
 
 (defn extract-lein-classpath 
