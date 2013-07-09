@@ -30,6 +30,75 @@
 
 (def RepoBase (vFile/filename "~" ".m2/repository/"))
 
+
+
+
+(defmacro defproject 
+  "macro used to read a lein project.clj file via read-str and translate it to a hashmap"
+  [nme version & opts]
+  (let [ver# (-> version (str/split #"\-"))]
+  `{:projNme ~(name nme) 
+    :version ~(first ver#)
+    :classifier ~(second ver#)
+    :params  (apply hash-map '~opts)}))
+
+(defn read-lein-project [projFolder]
+  (eval (read-string (slurp (vFile/filename projFolder "project.clj")))))
+
+(defn get-main-jar-dependency 
+  "Get the main jar of a project shaped as a dependency."
+  [proj]
+  {:pre [(map? proj)]}
+  (vector (let [artifId (:projNme proj)
+                groupId (->> (str/split artifId #"\.")
+                          (drop-last)
+                          (str/join "."))]
+            (symbol (str groupId "/" artifId))) 
+          (let [cls (:classifier proj) 
+                ver (:version proj)]
+            (if (seq cls) (str ver "-" cls) ver))))
+
+(defn dependency-to-classpath 
+  "Translate a dependency to a classpath part (relative path)"
+  [pars]
+  (let [[nme verCls] pars
+        nmes (str nme)   ;; use string as name removes prefix
+        nme (name nme)
+        [groupId artifId] (str/split nmes #"/")
+        artifId (if (seq artifId) artifId groupId)
+        groupId (str/replace groupId #"\." "/")
+        cpPart (str/join "/" (list groupId artifId verCls (str nme "-" verCls ".jar")))]
+    cpPart))
+
+  
+
+(defn extract-classpath 
+  "Extract a classpath from a project as read by read-lein-project.
+   NOTE: this classpath only contains the dependencies shown in the project-file and does not dig
+    into the jars for deeper/transitive dependencies."
+  [proj]
+  {:pre [(map? proj)]}
+  (let [mainJar (get-main-jar-dependency proj)
+        _ (println "mainJar="mainJar)
+        cp (-> proj (:params) (:dependencies) (concat (list mainJar)))]
+    (map dependency-to-classpath cp)))
+
+(defn extract-lein-classpath 
+  "Read the project.clj from 'projFolder and extract the classpath (including the project jar-file)."
+  [projFolder]
+  (extract-classpath (read-lein-project projFolder)))
+
+
+(defn get-main-jar 
+  "Extract the main jar from a leiningen project."
+  [projFolder]
+  (-> projFolder
+    (read-lein-project )
+    (get-main-jar-dependency )
+    (dependency-to-classpath )))
+
+
+
 (defn split-classpath 
   "Split a classpath in a series of classpath components."
   [cp]
@@ -64,7 +133,14 @@
 
 (defn retrieve-classpath [projFolder]
   (if (vFile/file-exists (vFile/filename projFolder "project.clj"))
-    (retrieve-lein-classpath projFolder)
+    (let [baseCp (vFile/filename (get (System/getenv) "HOME") ".m2/repository/")
+          cp (-> projFolder 
+               (retrieve-lein-classpath)  ;; returns a vector of classpaths
+               ; (str/split #":")
+               ((partial filter #(.endsWith % ".jar")) )
+               ((partial map #(if (.startsWith % baseCp) (subs % (count baseCp)) %)) ))
+          mj (get-main-jar projFolder)]
+      (cons mj cp))
     (if (vFile/file-exists (vFile/filename projFolder "pom.xml"))
       (retrieve-mvn-classpath projFolder)
       (vExcept/throw-except "(retrieve-classpath): Couldn't find project.clj or pom.xml in folder: " projFolder))))
@@ -118,58 +194,6 @@
     (spit (vFile/filename jarFolder (str projNme ".bat")) cmd)))
 
 
-(defmacro defproject 
-  "macro used to read a lein project.clj file via read-str and translate it to a hashmap"
-  [nme version & opts]
-  (let [ver# (-> version (str/split #"\-"))]
-  `{:projNme ~(name nme) 
-    :version ~(first ver#)
-    :classifier ~(second ver#)
-    :params  (apply hash-map '~opts)}))
-
-(defn read-lein-project [projFolder]
-  (eval (read-string (slurp (vFile/filename projFolder "project.clj")))))
-
-
-(defn extract-classpath 
-  "Extract a classpath from a project as read by read-lein-project."
-  [proj]
-  {:pre [(map? proj)]}
-  (let [mainJar (vector (let [artifId (:projNme proj)
-                              groupId (->> (str/split artifId #"\.")
-                                        (drop-last)
-                                        (str/join "."))]
-                          (symbol (str groupId "/" artifId))) 
-                        (let [cls (:classifier proj) 
-                              ver (:version proj)]
-                          (if (seq cls) (str ver "-" cls) ver)))
-        _ (println "mainJar="mainJar)
-        cp (-> proj (:params) (:dependencies) (concat (list mainJar)))
-        extract-cp-part (fn [pars]
-;;                          (println pars " of type:  " (type pars))
-                          (let [[nme verCls] pars
-;                                _ (println "enter with nme=" nme " and verCls=" verCls)
-                                nmes (str nme)   ;; use string as name removes prefix
-                                nme (name nme)
-               ;;                 _ (println "nme="nme " and nmes=" nmes)
-                                [groupId artifId] (str/split nmes #"/")
-                                 artifId (if (seq artifId) artifId groupId)
-             ;;                   _ (println "nme=" nmes "  resolves to group_id=" grId "  and artifact " artId)
-                                groupId (str/replace groupId #"\." "/")
-                  ;;              [ver cls] (str/split verCls #"-")
-                                ;;base (vFile/get-filename grId)
-                                cpPart (str/join "/" (list groupId artifId verCls (str nme "-" verCls ".jar")))]
-                            ;;(println "cpPart=" cpPart)
-                            cpPart))]
-;    (println "first cp = " (first cp) " of type " (type (first cp)))
-;    (let [ [a b] (first cp)] (println "a=" a))
-;    (println cp)
-    (map extract-cp-part cp)))
-
-(defn extract-lein-classpath 
-  "Read the project.clj from 'projFolder and extract the classpath (including the project jar-file)."
-  [projFolder]
-  (extract-classpath (read-lein-project projFolder)))
 
 (defn merge-classpaths [cp1 cp2 & cps]
   (let [merge2 (fn [cp1 cp2]

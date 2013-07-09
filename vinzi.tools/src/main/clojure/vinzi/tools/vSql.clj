@@ -602,37 +602,41 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn materialize-view 
-  "Take a view and materialize it as a table and add a primary key (sequence of field-names). 
+  "Take a view and materialize it as a table and add a primary key (sequence of field-names) and generate new statistics (ANALYZE). 
    Compute colDefs only if not provided. (database might be slow to commit to information_schema)."
   ([schema view table primary-key]
      (let [colDefs (get-col-info schema view)]
        (materialize-view schema view table primary-key colDefs)))
   ([schema view table primary-key colDefs]
-    (let [lpf "(vSql/materialize-view): "]
-      (letfn [(create-mat-table []
-                                (let [flds (map #(str (:column_name %)
-                                                      "  " (:data_type %)) colDefs)]
-                                  (create-table schema table flds true)))
-              (materialize-view []
-                                (let [fldStr  (str/join ", "
-                                                  (map #(qs (str/trim (:column_name %))) colDefs))
-                                      qry (str "INSERT INTO " (qsp schema table)
-                                               " (" fldStr ") \n"
-                                               "SELECT " fldStr "\n"
-                                               "FROM " (qsp schema view))]
-                                  (trace   lpf "qry: " qry)
-                                  (sql/do-commands qry)))
-              (add-primaryKey []
-                              (when (seq primary-key)
-                                (add-primary-key schema table primary-key))) ]
-             ;; main loop
-             (if (table-exists schema view)
-                (do
-                  (create-mat-table)
-                  (materialize-view)
-                  (add-primaryKey))
-                ;; throw exception (no error-msg first)
-                (throw (Exception. (str lpf "View " (qsp schema view) " does not exist."))))))))
+    (let [lpf "(vSql/materialize-view): "
+          qTbl (qsp schema table)
+          create-mat-table (fn []
+                             (let [flds (map #(str (:column_name %)
+                                                   "  " (:data_type %)) colDefs)]
+                               (create-table schema table flds true)))
+          materialize-view (fn []
+                             (let [fldStr  (str/join ", "
+                                                     (map #(qs (str/trim (:column_name %))) colDefs))
+                                   qry (str "INSERT INTO " qTbl 
+                                            " (" fldStr ") \n"
+                                            "SELECT " fldStr "\n"
+                                            "FROM " (qsp schema view))]
+                               (trace   lpf "qry: " qry)
+                               (sql/do-commands qry)))
+          add-primaryKey (fn []
+                           (when (seq primary-key)
+                             (add-primary-key schema table primary-key))) 
+          analyze (fn []
+                    ;; generate some new statistics
+                    (sql/do-commands (str "ANALYZE " qTbl)))]
+      ;; main loop
+      (if (table-exists schema view)
+        (do
+          (create-mat-table)
+          (materialize-view)
+          (add-primaryKey))
+        ;; throw exception (no error-msg first)
+        (throw (Exception. (str lpf "View " (qsp schema view) " does not exist.")))))))
 
 
 

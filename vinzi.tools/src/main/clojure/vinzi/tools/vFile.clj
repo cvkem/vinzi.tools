@@ -80,7 +80,7 @@
     (if (and (.startsWith fName "\"")
              (.endsWith fName "\""))
       (subs fName 1 (dec (count fName)))
-      subs)))
+      fName)))
 
 (defn filename 
   "Generate a filename from 'base / filename'. If filename is an absolute path (or home-path or './'-path) then 'base' is ignored.
