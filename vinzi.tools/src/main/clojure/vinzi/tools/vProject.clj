@@ -137,6 +137,7 @@
           cp (-> projFolder 
                (retrieve-lein-classpath)  ;; returns a vector of classpaths
                ; (str/split #":")
+               ((partial map str/trim) )   ;; last item might have a \n
                ((partial filter #(.endsWith % ".jar")) )
                ((partial map #(if (.startsWith % baseCp) (subs % (count baseCp)) %)) ))
           mj (get-main-jar projFolder)]
