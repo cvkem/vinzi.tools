@@ -4,7 +4,9 @@
         [clojure.tools [logging :only [error info trace debug warn]]])
   (:require [clojure
              [string :as str]]
-            [clojure.java.io :as io]
+            [clojure.java
+             [io :as io]
+             [shell :as sh]]
             [vinzi.tools [vExcept :as vExcept]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -87,10 +89,12 @@
    contrary to (io/file parent child) this function generates strings instead of file-objects
   and it accepts children that start with a '/' (see above).
   The '~' is expanded to an absolute path, while './' is left as is.
-  (Furthermore this function has additional logging and error-reporting that is not in (io/file)"
+  (Furthermore this function has additional logging and error-reporting that is not in (io/file).
+   TODO: should strip-dquotes be performed by default? (see previous function)"
   ([fName] (filename nil fName))
   ([base fName]
     (let [lpf "(filename): "
+          orgfName fName
           unify-separator #(if runningWindows
                              (str/replace % #"/" "\\\\")  ;; on windows remove "/" from paths (many java-utils generate canonical paths)
                              %)
@@ -109,8 +113,8 @@
         (vExcept/throw-except lpf "invalid value for fName: " fName))
       (if (= 0 (count (str/trim base)))
         (do
-          (warn lpf "Base directory is empty, so return filename unmodified: "
-                fName)
+          (when (= orgfName fName)
+            (warn lpf "Base directory is empty and file-name did not needed changes. return unmodified: " fName))
           fName)
         (if (full-path? fName)
           fName
@@ -211,6 +215,15 @@
         (println "REMOVE file: "nme)
         (.delete f))
       (error "Could not find file:  " nme))))
+
+(defn copy-file-with-date 
+  "copy the input to the output-file and retain dates of file (linux specific implementation)."
+  [inputFile copyFile]
+  (let [inputFile (filename inputFile) 
+        copyFile (filename copyFile)]    ;; expand ~/  on both
+    (io/copy (java.io.File. inputFile) (java.io.File. copyFile))
+    (sh/sh  "touch" "-r" inputFile copyFile)))
+
 
 (defn make-dir-path 
   "Make sure path is interpreted as a directory by adding a terminating slash if it does not exist."

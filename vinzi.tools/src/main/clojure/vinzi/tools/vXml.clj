@@ -66,7 +66,9 @@
 ;                                                   (conj cumm kv))))
                                   xmlElem (filter (complement string?) content)
                                   strElem (filter string? content)
-                                  xmlElem (->> (map #(xml-to-hashmap % keyMap forceTagDef) xmlElem)
+                                  xmlElem (->> (map #(do
+                                   ;;                    (println "xmlElem=" xmlElem)
+                                                       (xml-to-hashmap % keyMap forceTagDef)) xmlElem)
                                             (reduce check-conj (if attrs attrs {}) ))
                                   ]
                               (if (seq strElem)
