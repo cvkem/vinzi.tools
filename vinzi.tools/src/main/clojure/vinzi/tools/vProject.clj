@@ -118,7 +118,9 @@
 
 
 ;; See also extract-class-path-lein that extracts class-path directly from the project (does not need to run lein and correctly insertes project-jarfile.
-(def retrieve-lein-classpath (partial retrieve-proj-classpath '("lein" "classpath") identity))
+(def retrieve-lein-classpath (partial retrieve-proj-classpath '("lein" "-o" "classpath") identity))
+;; using lein -o, otherwise it might fail due to a lacking internet connection.
+
 (def retrieve-mvn-classpath  (partial retrieve-proj-classpath 
                                       '("mvn" "org.apache.maven.plugins:maven-dependency-plugin:2.6:build-classpath")
                                       (fn [cp] (->> cp 
