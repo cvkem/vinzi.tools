@@ -135,14 +135,22 @@
 
 (defn retrieve-classpath [projFolder]
   (if (vFile/file-exists (vFile/filename projFolder "project.clj"))
-    (let [baseCp (vFile/filename (get (System/getenv) "HOME") ".m2/repository/")
+    (let [lpf "(retrieve-classpath): "
+          baseCp (vFile/filename (get (System/getenv) "HOME") ".m2/repository/")
+          msg #(do (debug lpf %2 " interm.res: " %1) %1)
           cp (-> projFolder 
+               (msg "retrieve folder")
                (retrieve-lein-classpath)  ;; returns a vector of classpaths
                ; (str/split #":")
+               (msg "trim folders")
                ((partial map str/trim) )   ;; last item might have a \n
+               (msg "filter jars")
                ((partial filter #(.endsWith % ".jar")) )
+               (msg "remove base-classpath")
                ((partial map #(if (.startsWith % baseCp) (subs % (count baseCp)) %)) ))
+          _ (debug lpf "get main jar")
           mj (get-main-jar projFolder)]
+      (debug lpf " result= " (cons mj cp))
       (cons mj cp))
     (if (vFile/file-exists (vFile/filename projFolder "pom.xml"))
       (retrieve-mvn-classpath projFolder)
