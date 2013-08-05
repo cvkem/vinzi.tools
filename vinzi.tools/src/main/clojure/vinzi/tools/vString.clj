@@ -138,6 +138,14 @@
   (reduce convert-type pars typeMap)))
 
 
+(defn gen-strip-leading
+  "This function generates a function that takes a record as input 
+   and removes a leading string (possible one-character) from the value under key 'theKey'."
+  [theKey stripLeadStr]
+  #(let [ct (theKey %)]
+     (if (and ct (.startsWith ct stripLeadStr))
+       (assoc % theKey (apply str (rest ct))) ;; strip trailing "-"
+       %)))
 
 
 
