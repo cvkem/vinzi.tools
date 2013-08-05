@@ -102,6 +102,19 @@
     
     ))
 
+
+(deftest get-ymd-date-test
+  (testing "get-ymd-date with correctly formatted dates failed:"
+  (are [inp res] (= (vDate/get-ymd-date inp) res)
+       "2010-01-01" {:year 2010 :month 1 :day 1}
+       "1970-02-03" {:year 1970 :month 2 :day 3}
+       ))
+  (testing "get-ymd-date with badly formatted dates failed:"
+  (are [inp res] (= (vDate/get-ymd-date inp) res)
+       "2010-1-01" {:year 2010 :month 1 :day 1}
+       "1970-02-3" {:year 1970 :month 2 :day 3}
+       ))
+  )
 (comment 
 (deftest comparator-test
   (let [yesterday (vDate/make-sql-date 2012 9 9 23 59 59)

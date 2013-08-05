@@ -137,8 +137,11 @@
                        (if (= (type dt) java.util.Date)
                          (str (get-timestamp dt))
                          (error "(get-ymd-date): type of " dt " not valid."))))]
-       (let [values (re-find #"(\d{4})-(\d{2})-(\d{2})" dt)
+       (let [lpf "(get-ymd-date): "
+             values (re-find #"(\d{4})-(\d{1,2})-(\d{1,2})" dt)
              [year month day] (map #(Long/parseLong %) (drop 1 values))]
+       (when-not (and year month day)
+         (error lpf "failed to convert " dt " to a date. year=" year " month="month " and day=" day)) 
        {:year year
         :month month
         :day day}))))
