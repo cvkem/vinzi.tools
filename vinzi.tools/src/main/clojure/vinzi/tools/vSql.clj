@@ -337,16 +337,15 @@
 
 (defn get-sql-field-defs 
   "Get the field definitions as used in a create-statement. The fields should be either a sequence of strings, or 
-    a series of records with shape keys :nme, :tpe :constraint :default. "
-;;  example of a table definition
-;(def tModelFldDef  [{:nme "id"  :tpe :serial :constraint "PRIMARY KEY"}
-;                    {:nme "used"  :tpe :bool :default "FALSE"}
-;                    {:nme "actief" :tpe :bool :default "TRUE"}
-;                    {:nme "model" :tpe :string  :default ""}
-;                    {:nme "onderwerp" :tpe :string  :default ""}
-;                    {:nme "aanhef" :tpe :string  :default ""}
-;                    {:nme "inhoud" :tpe :string  :default ""}
-;                    {:nme "afsluiting" :tpe :string  :default ""}])
+    a series of records with shape keys :nme, :tpe :constraint :default. 
+    Field-definitions without a type a considered to be a (multi-column) constraint.
+    Examples of field-definitions:
+       {:nme \"id\"  :tpe :serial :constraint \"PRIMARY KEY\"}
+       {:nme \"used\"  :tpe :bool :default \"FALSE\"}
+       {:nme \"model\" :tpe :string  :default \"\"}
+       {:nme :omzet :tpe :double  :default 0.0}
+     and example of a multi-column constraint (no :tpe attribute)
+       {:nme \"tbl_pk\"  :constraint \"PRIMARY KEY (jaar , kosten_plaats )\"} "
   [flds]
   {:pre [(sequential? flds)]}
   (let [lpf "(get-sql-field-defs): "
@@ -384,17 +383,23 @@
                                  unknownKeys (set/difference (set (keys fld)) allowedKeys)]
                              (when (seq unknownKeys)
                                (vExcept/throw-except lpf "Unknown keys: " unknownKeys "in field " fld " (only allowed keys are: " allowedKeys ")"))
-                             (when (not (and nme tpe))
-                               (vExcept/throw-except lpf "fields :nme and :tpe are manditory. Received: " fld))
-                             (str (qs (name nme)) "\t" (get-type tpe) 
-                                  (when constraint (str " " constraint))
-                                  (when default (str " DEFAULT " (get-default default))))))  ;; TODO: improve the type-sensitivity of constraints.
+                             (when-not nme 
+                               (vExcept/throw-except lpf "field :nme is manditory. Received: " fld))
+                             (when-not (or tpe constraint) 
+                               (vExcept/throw-except lpf "either :tpe or :constraint should be set: " fld))
+                             (if tpe  ;; if tpe set it is a field, otherwise a (multi-column) constraint
+                               (str (qs (name nme)) "\t" (get-type tpe) 
+                                    (when constraint (str " " constraint))
+                                    (when default (str " DEFAULT " (get-default default))))
+                               (str "CONSTRAINT " (qs (name nme)) constraint))))  ;; TODO: improve the type-sensitivity of constraints.
         create-field-def (fn [fld]
                            (let [tpe (type fld)]
                              (cond 
                                (string? fld) (quote-first fld)
                                (map? fld)    (process-descr fld)
                                :else (vExcept/throw-except lpf "could not process field " fld " of type " (type fld)))))]
+    (when (some string? flds)
+      (warn lpf "string-definitions detected [DEPRECATED]"))
     (str/join ", " (map create-field-def flds))))
 
 
