@@ -344,10 +344,10 @@
 (defn process-pom
   "The main function that requires two paths that both end in a file-separator"
   ([from to]
-    (let [xz (zip/xml-zip (xml/parse (io/file (str from "pom.xml"))))
+    (let [xz (zip/xml-zip (xml/parse (io/file (vFile/filename from "pom.xml"))))
           project-info (lein-project-info xz)
           f (format-lein-project project-info)]
-      (spit (str to "project.clj") (with-out-str (pprint f)))
+      (spit (vFile/filename to "project.clj") (with-out-str (pprint f)))
       (pprint f)))
   ([from]
     (process-pom from from)))

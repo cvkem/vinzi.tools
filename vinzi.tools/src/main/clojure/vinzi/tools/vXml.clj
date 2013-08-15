@@ -22,7 +22,7 @@
 (defn xml-to-hashmap 
   "Translation maps an xml-tree to a clojure structure of nested hash-maps using a xmlDef structure. The xmlDef is used
      1. to define what attribute is used to name a tag in the hashmap (needed if the same tag appears multiple time (at the same level)
-     2. validates that all tags are defined (when forceTagDef is true (=default)).
+     2. validates that all tags are defined (when forceTagDef is true (= default)).
    This function puts contents items as hashmap into the attribute-map (loses ordering of content items,
     and throwing an exception when a content-item collides/overwrites an existing attribute).
     A (level of) a keyMap contains tags as keys and tagDescriptors as value. A tagDescriptor is a hash-map containing
@@ -30,7 +30,7 @@
      An example of a xmlDef is:
                {:entity {:idAttr :group
                             :keyMap {:location  {:idAttr :name}}}}
-    Which corresponds to an xml file with top-level <entity>, the idAttr :group is use to get the key for the (group of) locations
+    Which corresponds to an xml file with top-level <entity>, the idAttr :group is used to get the key for the (group of) locations
         as defined by :location records within this location. Each location use of idAttr 'name' as key in the hashmap contains a locs of group."
   ([xml xmlDef] (xml-to-hashmap xml xmlDef true))
   ([xml xmlDef forceTagDef]
