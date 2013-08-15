@@ -3,7 +3,8 @@
 ;;        [clojure [stacktrace :only [print-stack-trace root-cause]]]
 ;;        [clojure.tools [logging :only [error info trace debug warn]]])
   (:require [clojure
-             [string :as str]])
+             [string :as str]]
+            [vinzi.tools [vFile :as vFile]])
   (:import [java.io     File   BufferedReader FileInputStream FileOutputStream BufferedInputStream]
            [java.util   Properties]))
 
@@ -74,11 +75,21 @@ Uses as-prop-str to convert both keys and values into strings."
 
 
 (defn read-properties
-  "Read properties from file-able."
-  [fName]
-  (with-open [f (java.io.FileInputStream. fName)]
-    (doto (Properties.)
-      (.load f))))
+  "Read properties from file-able, translate the string-keys to keywords and set defaults.
+   Fails with exception if the file does not exist unless you pass in a default hash-map."
+  ([fName]
+    (with-open [f (java.io.FileInputStream. fName)]
+      (let [props (doto (Properties.)
+                    (.load f))
+            to-hashmap #(zipmap (map keyword (keys %1)) (vals %1))]
+  (to-hashmap props))))  ;; translate java.util.properties to a normal hash-map (otherwise assoc does not work)
+  ;; also translating string-keys to keywords
+            ([fName default]
+    {:pre [(map? default)]}
+    (if (vFile/file-exists fName)
+      (into default (read-properties fName))
+      default)))
+
 
 (defn write-properties
   "Write properties to file-able."
