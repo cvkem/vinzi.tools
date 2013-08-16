@@ -575,7 +575,10 @@
   "get information on all columns (limited set) ordered by ordinal position.
    (Assumes that the table is located in the current catalog)."
   [schema tblNme]
-  (let [catalog (.getCatalog (sql/connection))
+  (let [catalog (let [conn (sql/connection)]
+                  (if (re-find #"\.mysql\." (str conn))
+                    "def"     ;; assume mysql data to be in the 'def' catalog.
+                    (.getCatalog conn)))
         schema  (strip-dQuotes schema)
         tblNme  (strip-dQuotes tblNme)
         sql (str "SELECT column_name, data_type, ordinal_position "
