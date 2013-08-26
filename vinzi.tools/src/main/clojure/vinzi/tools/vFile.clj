@@ -404,8 +404,13 @@ The 'actOnDir' flag tells whether the action should be applied to a directory be
   (apply concat (map #(line-seq (open-file %)) fileSeq))))
 
 
+(def SimpleDateFormat (java.text.SimpleDateFormat. "dd-MM-yyyy HH:mm:ss"))
 
-
+(defn get-last-modified 
+  "Retrieve the last modification time and return it as a string."
+  [fName]
+  (->> fName (java.io.File. ) (.lastModified ) (.format SimpleDateFormat )))
+  
 
 
 
