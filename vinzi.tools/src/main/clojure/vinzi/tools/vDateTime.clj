@@ -112,6 +112,14 @@
 ;;          (println (str/join ";" parts))
           (apply make-sql-date (map #(Integer/parseInt %) parts))))) 
 	
+(defn generate-sql-date-str
+  "Transforms a date-object to a string that can be passed to sql as timestamp in a query.
+   Uses the fact that prn and printline generate the right type of string.
+   However, in case of mysql it is also possible to pass the str of a date. However, (str date):
+     - for dates changes it to for example 'Wed Aug 28 14:50'
+     - and returns the string after correction for timezone, while this function returns a date-time in UTC."
+  [dt]
+  (second (re-find #"\"([\w-\.:]*)\"" (with-out-str (prn dt)))))
 
 (defn ymd-to-string 
   "Return a string with format 'YYYY-MM-DD' based on 'ymd'."

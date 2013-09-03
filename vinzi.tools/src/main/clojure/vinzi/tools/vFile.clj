@@ -237,7 +237,8 @@
    If fName is a directory that needs to be created you should a a terminating file-separator (/).
     (fName can be string or java.io.File).
    TODO: Should check whether you have write-permissions on directory!!
-     should check wether directory is created (as incorrect permissions on one of the parents might result in failure." 
+     should check wether directory is created (as incorrect permissions on one of the parents might result in failure.
+   TODO: as cleaner encoding would be to use (.mkdirs (java.io.File. x))" 
   [fName]
   {:pre [(string? fName)]}
   (debug "(ensure-dir-exists): for file " fName)

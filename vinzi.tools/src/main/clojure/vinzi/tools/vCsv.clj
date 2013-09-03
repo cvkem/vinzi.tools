@@ -387,6 +387,15 @@
    The keys of the first map-item will be used a keys for the full sequence."
   [fName data & opts]
   (check-data-type fName data)
+  ;; some checks on the validity of the options.
+  (let [lpf "(vCsv/write-csv): "
+        csvOpts (apply hash-map opts)
+        newlineOpts #{nil :lf :cr+lf}]
+    (if-let [unknown (seq (remove #(#{:separator :quote :quote? :newline} (first %)) csvOpts))]
+      (vExcept/throw-except lpf " Unknown option(s): " unknown) 
+      (when-not (newlineOpts (:newline csvOpts))
+        (vExcept/throw-except lpf " Only valid values for options :newline are : " newlineOpts) )))
+  ;; the core code
   (with-open [out (io/writer fName)]
     ;; TODO: use write-csv-stream instead of code below
     (let [data (map-seq-to-csv data)]
