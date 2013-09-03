@@ -169,6 +169,21 @@
        :user         user
        :password     password})))
 
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; finding information on the connection
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(defn get-current-database 
+  "Get the name of the database of the current connection."
+  []
+  (.getCatalog (sql/connection)))
+
+
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  auxiliary functions for testing purpose
 ;;  (shortened version of vinzi.tools.sqlTools/table-exists, to prevent dependency)
@@ -364,17 +379,22 @@
         get-default  (fn [default]
                        (cond 
                          (boolean? default) (if default "TRUE" "FALSE")
-                         (string? default)  (sqs default)
+                         (string? default)  (if (= (str/trim (str/lower-case default)) "now()")
+                                              "now()"   ;; asume it is a default for a date or timestamp
+                                              (sqs default))
                          (number? default)   (str default)
+                         (nil? default)     "NULL"   ;; nill translated to th unquoted string NULL
                          ;;  add a date type and handling of now() via special constants of hashmaps
                          :else (vExcept/throw-except lpf "default value: " default " could not be interpreted as boolean, string or number")))
         get-type (fn [tpe]
                    (case tpe
                      (:string :text) "TEXT"
                      (:integer :int) "INTEGER"
-                     :serial         "SERIAL"
+                     :serial         "serial"   ;; serial should not be in capitals
                      (:bool :boolean) "BOOLEAN"
                      (:double :dbl)  "DOUBLE PRECISION"
+                     (:date)         "DATE"
+                     (:timestamp)    "TIMESTAMP"  ;; is TIMESTAMP without TIMEZONE in Postgres as SQL standard requires 
                      tpe
                      ))
         process-descr    (fn [fld]
@@ -421,6 +441,14 @@
     ;;  allows skipping first records if these contain nils (as we can not derive type-information from nil-values)
     (map derive-def rec)))
 
+(defn check-create-schema
+  "Create schema if it does not exist yet in current database."
+  [schema]
+  (let [lpf "(check-create-schema): "]
+    (when-not (schema-exists schema)
+      (debug lpf "Creating schema " (qs schema) " on connection "
+             (get-current-database))
+      (sql/do-commands (str "CREATE SCHEMA " (qs schema) ";")))))
 
 
 (defn create-table "Create a table 'schema'.'tblName' with fields 'fields' if it does not exist yet. 
@@ -560,9 +588,6 @@
   [knotName]
   (let [knotId (str/join (conj (vec (take 3 knotName)) "_ID"))]
     (map-table-to-hashmap "vam" knotName knotId knotName)))
-
-
-
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
