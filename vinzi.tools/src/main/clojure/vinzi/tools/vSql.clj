@@ -6,7 +6,9 @@
              [set :as set]
              [string :as str]]
             [clojure.java.jdbc :as sql]
-            [vinzi.tools.vExcept :as vExcept]))
+            [vinzi.tools
+             [vDateTime :as vDate]
+             [vExcept :as vExcept]]))
 
 
 
@@ -822,6 +824,64 @@
 	(sql/with-connection targetDb
 	  (do-rpt)))
       (do-rpt))))   ;; operate on the existing connection.
+
+
+(defn get-sql-str-val 
+  "This function takes value and returns it in a string-format that can be included in an SQL-string. It does not
+   do a type-check on the value (or not yet)."
+  ;; TODO: implement other types
+  ;; TODO: perform escaping on string values
+  [val tpe]
+  (let [lpf "(get-sql-str-val): "
+        ;; some conversion as you can not use (keyword ...) within a case
+        tpe (if (= tpe (keyword "double precision"))
+              :double
+              (if (= tpe (keyword "character varying"))
+                :text
+                (if (or (= tpe (keyword "timestamp without time zone"))
+                        (= tpe (keyword "timestamp with time zone")))
+                  :timestamp
+                  tpe)))]
+    (case tpe
+      (:integer :real :double) (do (println "TMP return plain for type:" tpe "  and val=" val)
+                                 (str val))
+      (:text :string)  (sqs val)
+      (:timestamp :date) (do  (println "TMP return date")
+                           (sqs (vDate/generate-sql-date-str val)))
+      (vExcept/throw-except lpf " type " tpe " not recognized."))))
+
+
+(defn update-recs 
+  "Update of a table for a sequence of records. The update-string is generated per record, such that
+   the number of updates fields might differ for each record. The appropriate types are retrieved from
+   the table-definition. This function does not do a type-check on the provided values."
+  [schema tbl idKey recs]
+  {:pre [(string? schema) (string? tbl) (keyword idKey) (sequential? recs)]}
+  (let [lpf "(update-recs): "
+        colDefs (get-col-info schema tbl)
+        typemap (zipmap (map (comp keyword :column_name) colDefs)
+                        (map (comp keyword :data_type) colDefs))
+        get-type (fn [k]
+                   (if-let [tp (typemap k)] 
+                     tp 
+                     (vExcept/throw-except lpf "Key: " idKey " not found in table having keys: " (keys typemap))))
+        idTpe (get-type idKey)
+        get-kv-str (fn [[k v]]
+                     (println "TMP-get-kv-str  k="k "  and v= "v)
+                     (str (qs (name k)) "=" (get-sql-str-val v (get-type k))))
+        fmt (str "UPDATE " (qsp schema tbl) " SET %s WHERE " (qs (name idKey)) " = %s;")
+        update (fn [rec]
+                 (let [idVal (if-let [id (idKey rec)]
+                               id
+                               (vExcept/throw-except lpf " id-key: " idKey " missing in record: " rec))
+                       idVal (get-sql-str-val idVal idTpe)
+                       setStr (->> (dissoc rec idKey)
+                                (map get-kv-str )
+                                (str/join ", " ))
+                       qry (format fmt setStr idVal)]
+                   (sql/do-commands qry))) ]
+    (doseq [rec recs]
+      (update rec))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
