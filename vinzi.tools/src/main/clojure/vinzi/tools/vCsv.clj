@@ -393,8 +393,8 @@
         newlineOpts #{nil :lf :cr+lf}]
     (if-let [unknown (seq (remove #(#{:separator :quote :quote? :newline} (first %)) csvOpts))]
       (vExcept/throw-except lpf " Unknown option(s): " unknown) 
-      (when-not (newlineOpts (:newline csvOpts))
-        (vExcept/throw-except lpf " Only valid values for options :newline are : " newlineOpts) )))
+      (when-not (or (nil? (:newline csvOpts)) (newlineOpts (:newline csvOpts)))  ;; nil requires separate test
+        (vExcept/throw-except lpf " Only valid values for options :newline are : " newlineOpts " however received: " (:newline csvOpts)) )))
   ;; the core code
   (with-open [out (io/writer fName)]
     ;; TODO: use write-csv-stream instead of code below
