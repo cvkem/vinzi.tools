@@ -13,42 +13,52 @@
 (def ^:dynamic Now  nil)
 (def ^:dynamic NowMillis nil)
 
-(defn set-Now []
+(def TimeZoneId "Europe/Amsterdam")
+(def TimeZone (java.util.TimeZone/getTimeZone TimeZoneId))
+
+(defn correct-time-zone 
+  "Correct a UTC-time in millis for the current timeZone on that time
+    (so for Ams the correction is +01 in Winter and +02 during Summer)."
+  [timeMillis]
+  (+ timeMillis (.getOffset TimeZone timeMillis)))
+
+(defn set-Now 
+  "The bare format of Now is an UTC. However, (str Now) prints a value
+   that is corrected for time zone. "
+  []
   (def Now (java.util.Date.))
   (def NowMillis (.getTime Now))
   Now)
 
-
 (set-Now)
-(warn "In vinzi.tools.vDateTime Now is set at: " Now
-      "this values will only be updated at the next start of the JVM!!"
+(warn "In vinzi.tools.vDateTime Now is set at: " Now " for zone " TimeZoneId
+      " this values will only be updated at the next start of the JVM!!"
       "(use 'vinzi.tools.vDateTime/set-Now to update it)" )
 
 
 (defn get-timestamp 
-  "Returns the time-stamp of the java-util.Date that is passed. If no arguments is passed it returns now()."
+  "Returns the time-stamp of the java-util.Date that is passed. 
+   If no arguments is passed it returns now().
+   The time-stamp is in UTC, however the string value is corrected for 
+   the local timezone"
   ([]
-     (get-timestamp (java.util.Date.)))
+    (.getTime (java.util.Date.)))  ;; this is a utc time
   ([date]
    {:pre [(= (type date) java.util.Date)]}
    (java.sql.Timestamp. (.getTime date))))
+
 
 (defn get-time-millis 
   "Get a millisecond timestamp of a Gregorian Date, where
    (str (java.sql.Date. (get-time-millis 1950 1 2)))
     corresponds to 1950-01-02."
-  ([year month day]
+  ([year month day] (get-time-millis year month day 0 0 0))
+  ([year month day hours minutes seconds]
     (.getTimeInMillis
       ;; in Gregorian calendar system:
       ;;    - first month is 0  (January)
       ;;    - first day of month is 1
-      (java.util.GregorianCalendar. year (dec month) day)))
-    ([year month day hours minutes seconds]
-      (.getTimeInMillis
-        ;; in Gregorian calendar system:
-        ;;    - first month is 0  (January)
-        ;;    - first day of month is 1
-        (java.util.GregorianCalendar. year (dec month) day hours minutes seconds))))
+      (java.util.GregorianCalendar. year (dec month) day hours minutes seconds))))
 
 (defn make-sql-date 
   "Prepare an SQL-date based on 'year', 'month', 'day'. Returns a (binary) java.sql.Date object. If you need to include the date in a string you can use the (str java.sql.Date)."
@@ -70,6 +80,7 @@
 
 (def Interval1weekMillis  (long (- (get-time-millis 2012 1 8) (get-time-millis 2012 1 1))))
 (def Interval1dayMillis  (long (- (get-time-millis 2012 1 2) (get-time-millis 2012 1 1))))
+(def Interval1hourMillis  (long (/ Interval1dayMillis 24)))
 (def Interval1minuteMillis  (long (/ Interval1dayMillis (* 24 60))))
 
 
@@ -232,10 +243,22 @@
       (.get cal java.util.GregorianCalendar/DAY_OF_WEEK)
       )))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  Three functions to compute an date at an offset.
+;;   Negative values correspond to target-dates in the past.
+
 (defn get-TS-dayOffset
   "Get the sql-timestamp at a certain dayOffset of 'dt'. A dayOffset of -7 corresponds to last week."
   [dt dayOffset]
   (let [offset (* dayOffset Interval1dayMillis)
+        millis (.getTime dt)
+        newMillis (+ millis offset)]
+    (java.sql.Timestamp. newMillis)))
+
+(defn get-TS-hourOffset
+  "Get the sql-timestamp at a certain hourOffset of 'dt'. A hourOffset of -24 corresponds to one day before."
+  [dt dayOffset]
+  (let [offset (* dayOffset Interval1hourMillis)
         millis (.getTime dt)
         newMillis (+ millis offset)]
     (java.sql.Timestamp. newMillis)))

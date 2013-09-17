@@ -867,7 +867,7 @@
                      (vExcept/throw-except lpf "Key: " idKey " not found in table having keys: " (keys typemap))))
         idTpe (get-type idKey)
         get-kv-str (fn [[k v]]
-                     (println "TMP-get-kv-str  k="k "  and v= "v)
+                     ;;(println "vSQL:TMP-get-kv-str  k="k "  and v= "v)
                      (str (qs (name k)) "=" (get-sql-str-val v (get-type k))))
         fmt (str "UPDATE " (qsp schema tbl) " SET %s WHERE " (qs (name idKey)) " = %s;")
         update (fn [rec]

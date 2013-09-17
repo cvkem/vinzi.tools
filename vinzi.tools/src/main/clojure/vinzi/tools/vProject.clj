@@ -298,10 +298,11 @@
 
 (defn- build
   [pom-zip]
-  (let [bld (zx/xml1-> pom-zip :build)]
+  (if-let [bld (zx/xml1-> pom-zip :build)]
     {:source-paths [(zx/xml1-> bld :sourceDirectory zx/text)]
      :test-paths [(zx/xml1-> bld :testSourceDirectory zx/text)]
-     :resource-paths (into [] (zx/xml-> bld :resources :resource :directory zx/text))}))
+     :resource-paths (into [] (zx/xml-> bld :resources :resource :directory zx/text))}
+    (println "No key :build in the pom.xml. Ignoring source-paths, test-paths and resource-paths")))
 
 (defn- lein-project-info
   [xz]
