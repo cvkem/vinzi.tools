@@ -42,7 +42,7 @@
    The time-stamp is in UTC, however the string value is corrected for 
    the local timezone"
   ([]
-    (.getTime (java.util.Date.)))  ;; this is a utc time
+    (get-timestamp (java.util.Date.)))  ;; this is a utc time
   ([date]
    {:pre [(= (type date) java.util.Date)]}
    (java.sql.Timestamp. (.getTime date))))
@@ -79,7 +79,7 @@
 (def Interval5yrsMillis  (long (/ Interval40yrsMillis 8)))
 
 (def Interval1weekMillis  (long (- (get-time-millis 2012 1 8) (get-time-millis 2012 1 1))))
-(def Interval1dayMillis  (long (- (get-time-millis 2012 1 2) (get-time-millis 2012 1 1))))
+(def Interval1dayMillis   (long (- (get-time-millis 2012 1 2) (get-time-millis 2012 1 1))))
 (def Interval1hourMillis  (long (/ Interval1dayMillis 24)))
 (def Interval1minuteMillis  (long (/ Interval1dayMillis (* 24 60))))
 
