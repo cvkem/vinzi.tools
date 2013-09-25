@@ -5,7 +5,8 @@
               [stacktrace :as st]
               [string :as str :only [lowercase replace replace-re trim]]]
              [clojure.java
-              [io :as io]]
+              [io :as io]
+              [shell :as sh]]
              [vinzi.tools 
               [vFile :as vFile]
               [vEdn :as vEdn]
@@ -331,10 +332,59 @@
 
 
 
+(defn memory-tracker 
+  "fName is the name of the file that should contain the memory report
+   and interval is a reporting interval in seconds.
+   (do not take interval too short as file needs to be openened/flushed 
+   on each iteration.)
+   Initial entries are taken from proc memInfo."
+  [fName interval]
+  (let [memFile  "/proc/meminfo"
+        baseReport (->> (sh/sh "cat" memFile) 
+                        (:out )) 
+        baseReport (str "### Dump of " memFile "\n" baseReport "###\n")
+        fName (vFile/filename fName)
+        _ (when (vFile/file-exists fName)
+            (io/delete-file fName))
+        memTrack (io/writer fName)
+        add-line (fn [l]
+                   (.write memTrack l)
+                   (.flush memTrack))
+        sleepMs (long (* interval 1000))
+        rt (Runtime/getRuntime)
+        Mb (* 1024 1024)
+        mem-stat (fn []
+                  (let [free (long (/ (.freeMemory rt) Mb))
+                        total (long (/ (.totalMemory rt) Mb))
+		        used  (- total free)
+                        max    (long (/ (.maxMemory rt) Mb))]
+                     (str "used " used "Mb  free " free "Mb  max. " max "Mb\n")))
+        mem-track (fn []
+                    (add-line (mem-stat))
+                    (Thread/sleep sleepMs)
+                    (recur))
+        mem-track-thread (Thread. mem-track)
+        stop-memory-tracker (fn [] 
+                          (println "Stop the memory tracking process")
+                          (.stop mem-track-thread)
+                          (println "wait for a cycle and close file: " fName)
+                          (Thread/sleep 1)  ;; wait for a cycle before closing streeam
+                          (.close memTrack))
+        ] 
+     (println "Logging memory to: " fName)
+     (add-line baseReport)
+     (.start mem-track-thread)
+     {:stop-memory-tracker stop-memory-tracker}
+   ))
 
 
-
-
+(defn test-memory-tracker []
+  (let [{:keys [stop-memory-tracker]} (memory-tracker "/tmp/test-track" 1)]
+  (println "started the memory tracker. Now wait 10s")
+  (Thread/sleep 10000)
+  (println "woke up")
+  (stop-memory-tracker) 
+  (println "Stopped tracker. Ready")))
 
 
 (defn -main [& args]
