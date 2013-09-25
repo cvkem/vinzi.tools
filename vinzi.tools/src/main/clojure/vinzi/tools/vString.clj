@@ -1,6 +1,7 @@
 (ns vinzi.tools.vString
   (:use	[clojure [pprint :only [pprint pp]]]
          [clojure [stacktrace :only [print-stack-trace root-cause]]]
+         [vinzi.tools [vSql :only [qs]]]
 	   [clojure.tools [logging :only [error info trace debug warn]]])
   (:require [clojure
              [string :as str]
@@ -24,7 +25,40 @@
   [replStr]
   ;; special case for strings that start with $
   (str/replace replStr #"([^\\])\$|^\$" "$1\\\\\\$"))
-  
+ 
+(defn transform-to-regexp-string-aux 
+  "Transform the string to a base string to generate either a search
+   pattern or a replace pattern (for str/replace)."
+  [s]
+(debug "(transform-to-regexp-string-aux): UNDER DEVELOPMENT")
+  (-> s
+    (str/replace  #"\\" "\\\\\\\\")
+    (str/replace  #"\"" "\\\\\"")))
+
+(defn transform-to-replace-string 
+  "Transform the string to a regular expressions search pattern.
+   (use prn to grab it from the commandline)."
+  [s]
+(debug "(transform-to-replace-string): UNDER DEVELOPMENT")
+  (-> s
+     (transform-to-regexp-string-aux )
+     (escape-replace-str )
+     (qs )))
+
+
+(defn transform-to-regexp-string 
+  "Transform the string to a regular expressions search pattern."
+  [s]
+(debug "(transform-to-regexp-string): UNDER DEVELOPMENT")
+  (-> s
+    (transform-to-regexp-string-aux )
+    (str/replace  #"\." "\\\\.")
+    (#(str "#" (qs %))) ))
+ 
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  parameter replacement
 
 (defn replace-params "Takes 'code' (multi-line string) and 
  performs the parameter substitution as defined in 'params' (keywords translated to strings).

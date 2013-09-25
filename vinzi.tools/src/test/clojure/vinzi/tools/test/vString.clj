@@ -113,3 +113,15 @@
        '(:A :B nil :b :a 1) '(nil 1 :A :a :B :b )
        ))
 
+(deftest test-transform-to-regexp-string-aux
+  (are [inp res] (= (vString/transform-to-regexp-string-aux inp) res)
+     "\\" "\\\\"
+     "\"" "\\\""
+))
+
+(deftest test-transform-to-regexp-string
+  (are [inp res] (= (vString/transform-to-regexp-string inp) res)
+     "\\" "#\"\\\\\""
+     "." "#\"\\.\""
+     "\"\" " "#\"\\\"\\\" \""
+))
