@@ -18,8 +18,31 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  function for the progress.edn file
 ;;  The edn is currently coupled to the log-tracker and derives it's filename from that file.
-;;  Log entries have shape
+;;  Log entries have shape {:data
+;;                      :... }
 ;;
+
+(defn set-logback-logfile 
+  "Set the logfile via the Joran programming interface. 
+    Only works with logback!!
+    Configuration is either a filename a java.io.File or an inputstream
+    (containing xml (or groovy) (or  a list of ch.qos.logback.core.joran.event.SaxEvent)."
+  [configuration]
+  (let [lpf "(set-logback-logfile): "]
+    (try 
+      ;; based on  code-sniplet from:
+      ;;   http://logback.qos.ch/manual/configuration.html
+      (let [context (org.slf4j.LoggerFactory/getILoggerFactory)
+            jc (ch.qos.logback.classic.joran.JoranConfigurator.)]
+        (.setContext jc context)
+        (.reset context)
+        (.doConfigure jc configuration))
+      (catch ch.qos.logback.core.joran.spi.JoranException ex
+        (binding [*out* *err*]
+          (println lpf "Exception raised: " (.getMessage ex))))
+      (catch java.lang.ClassNotFoundException ex
+         (error lpf "This function assumes logback as logging-framework\n" 
+           (.getMessage ex))))))
 
 (defn derive-edn 
   "Derive an edn file that uses the same path and basename as the logName. 
@@ -338,11 +361,23 @@
    (do not take interval too short as file needs to be openened/flushed 
    on each iteration.)
    Initial entries are taken from proc memInfo."
-  [fName interval]
+  ([fName interval] (memory-tracker fName interval 10))
+  ([fName interval osDiv]
   (let [memFile  "/proc/meminfo"
-        baseReport (->> (sh/sh "cat" memFile) 
-                        (:out )) 
-        baseReport (str "### Dump of " memFile "\n" baseReport "###\n")
+        get-os-mem-report #(->> (sh/sh "cat" memFile) 
+                             (:out )) 
+        stf (java.text.SimpleDateFormat. "HH:mm:ss.SSS")
+        nextOs (atom 1)
+        get-os-rep (fn [] 
+                     (let [nowMs  (.format stf (java.util.Date.))] 
+                       (->> (get-os-mem-report)
+                          (re-find #"MemTotal:\s*(\d*)[\w\s\d:\(\)]*MemFree:\s*(\d*)[\w\s\d:i\(\)]*SwapFree:\s*(\d*)" )
+                          (rest)
+			  (map #(int (/ (Long/parseLong %) 1000)) )
+			  ;; prepend the time (precision ms)
+                          ((partial cons nowMs ))
+                          (apply format "OS: Time %s MemTotal %sMb MemFree: %sMb SwapFree: %sMb\n"))))
+        baseReport (str "### Dump of " memFile "\n" (get-os-mem-report) "###\n")
         fName (vFile/filename fName)
         _ (when (vFile/file-exists fName)
             (io/delete-file fName))
@@ -361,6 +396,9 @@
                      (str "used " used "Mb  free " free "Mb  max. " max "Mb\n")))
         mem-track (fn []
                     (add-line (mem-stat))
+                    (when (= (swap! nextOs dec) 0)
+                      (add-line (get-os-rep))
+                      (swap! nextOs (fn [_] osDiv)))
                     (Thread/sleep sleepMs)
                     (recur))
         mem-track-thread (Thread. mem-track)
@@ -375,11 +413,11 @@
      (add-line baseReport)
      (.start mem-track-thread)
      {:stop-memory-tracker stop-memory-tracker}
-   ))
+   )))
 
 
 (defn test-memory-tracker []
-  (let [{:keys [stop-memory-tracker]} (memory-tracker "/tmp/test-track" 1)]
+  (let [{:keys [stop-memory-tracker]} (memory-tracker "/tmp/test-track" 1 2)]
   (println "started the memory tracker. Now wait 10s")
   (Thread/sleep 10000)
   (println "woke up")

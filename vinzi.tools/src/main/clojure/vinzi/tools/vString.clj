@@ -11,6 +11,13 @@
              [vExcept :as vExcept]]))
 
 
+(defn string-to-inputstream 
+  "Convert a string to a ByteArrayInputStream."
+  [xml]
+  {:pre [(string? xml)]}
+  (java.io.ByteArrayInputStream. (.getBytes (.trim xml))))
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  functions for handeling string-parameters
