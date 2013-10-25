@@ -3,12 +3,60 @@
         [clojure [stacktrace :only [print-stack-trace root-cause]]]
         [clojure.tools [logging :only [error info trace debug warn]]])
   (:require [clojure
-             [xml :as xml]
-             [set :as set]]
+             [set :as set]
+             [string :as str]
+             [xml :as xml]]
+	    [clojure.data 
+             [xml :as dXml]]
             [debug-repl [debug-repl :as dr]]
             [vinzi.tools 
              [vExcept :as vExcept]
              [vMap :as vMap]]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Helper routines to work with 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;;;; move from clojure.xml to clojure.data.xml structure
+
+(defn to-dataXml 
+  "Translate a clojure.xml datastructure to a 
+   clojure.data.xml datastructure to be able to use
+   the emit-routines of clojure.data.xml.
+   clojure.xml/emit is not documented and therefore might
+   be skipped in future versions.
+   If you pass in a clojure.data.xml datastructure it will be 
+   returned unmodified, so this routine is safe to use on
+   both xml-representations."
+  [e]
+  (if (map? e)
+    (let [content (map to-dataXml (:content e))]
+      (apply dXml/element (:tag e) (:attrs e) content))
+    e))
+
+(defn print-xml-no-header
+  "Print the xml as a string and remove the xml-header."
+  [xml]
+  (-> xml
+      (to-dataXml )
+      (dXml/emit-str )
+      (str/replace #"^\<\?xml version=\"1.0\" encoding=\"UTF-8\"\?\>" "")))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Use xml-to-hashmap only when it hash-maps are the best solution
+;;  (i.e. simply read-only solutions with fairly simple xml-structures.)
+;;
+;; In more complex cases the preferred mode of operation is to use
+;; clojure.data.xml (and clojure.xml).
+;;
+;; The clojure.data.zip.xml structure and the vinzi.data.zip functions
+;; are also considered to be too complex for most use-cases (xml-> functions)
+;; Only when mutating existing reconstructing paths in similar structures
+;; there is a good use-case for the vinzi.data.xml functions.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def validTagDescrKeys #{:keyMap :idAttr :keepId :allowContent :groupTags})
 
