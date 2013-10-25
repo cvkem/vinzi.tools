@@ -394,17 +394,20 @@
 		        used  (- total free)
                         max    (long (/ (.maxMemory rt) Mb))]
                      (str "used " used "Mb  free " free "Mb  max. " max "Mb\n")))
+        stop-thread (atom false)
         mem-track (fn []
                     (add-line (mem-stat))
                     (when (= (swap! nextOs dec) 0)
                       (add-line (get-os-rep))
                       (swap! nextOs (fn [_] osDiv)))
                     (Thread/sleep sleepMs)
-                    (recur))
+		    (when (not @stop-thread)
+                      (recur)))
         mem-track-thread (Thread. mem-track)
         stop-memory-tracker (fn [] 
                           (println "Stop the memory tracking process")
-                          (.stop mem-track-thread)
+                          ;;(.stop mem-track-thread)
+			  (swap! stop-thread (fn [_] true))  ;; .stop is deprecated.
                           (println "wait for a cycle and close file: " fName)
                           (Thread/sleep 1)  ;; wait for a cycle before closing streeam
                           (.close memTrack))
