@@ -12,6 +12,28 @@
             [vinzi.tools 
              [vExcept :as vExcept]
              [vMap :as vMap]]))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  functions to match xml-text-values to booleans.
+;;
+;;
+        ;; now also testing TRUE, YES, JA, etc...)
+        ;; matching true and false values  (assuming it is a string)
+(def True-set  #{"TRUE" "YES" "JA" "Y" "J"})
+(def False-set #{"FALSE" "NO" "NEE" "N"})
+
+(defn Match-boolean 
+  "If v is boolean, return it, otherwise match the trimmed uppercase 
+   value of v against the Match-set."
+  [v match-set]
+  (let [lpf "(vXml/Match-boolean): "]
+    (if (or (= (type v) java.lang.Boolean) (nil? v)) 
+      v
+      (if (string? v)
+        (match-set (str/upper-case (str/trim v)))
+        (vExcept/throw-except lpf "value " v 
+           " should be type boolean string or nil.")))))
+(def Match-true  #(Match-boolean % True-set))
+(def Match-false  #(Match-boolean % False-set))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Helper routines to work with 
@@ -35,8 +57,8 @@
       (apply dXml/element (:tag e) (:attrs e) content))
     e))
 
-(defn print-xml-no-header
-  "Print the xml as a string and remove the xml-header."
+(defn get-xml-no-header
+  "Get the xml as a string without the xml-header."
   [xml]
   (-> xml
       (to-dataXml )
