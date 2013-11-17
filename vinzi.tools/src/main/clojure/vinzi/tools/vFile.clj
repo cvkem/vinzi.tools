@@ -360,6 +360,53 @@ The 'actOnDir' flag tells whether the action should be applied to a directory be
    	      (.isDirectory f)))))
 )
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  New file-system iteration iterface 
+;;  returns all file-objects in a sub-tree
+;;  (vFile/walk-fs should/could be replaced by these more generic
+;;   and cleaner functions)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn list-file-objects
+  "List file for a folder, where folder is a java.io.File or a string.
+   For strings we expand the name via vFile/filename."
+  ([folder] (list-file-objects folder identity))
+  ([folder ffilt]
+     (let [folder (-> (if (string? folder)
+			(filename folder)
+			folder)
+		      (io/file ))]
+       (->> folder (file-seq) (filter ffilt )))))
+
+
+(defn list-files
+  "List file for a folder, where folder is a java.io.File or a string.
+   For strings we expand the name via vFile/filename."
+  [folder]
+  (list-file-objects folder #(.isFile %)))
+
+(defn list-folders
+  "List folders for a folder, where folder is a java.io.File or a string.
+   For strings we expand the name via vFile/filename.
+   The folder itself is listed as first item."
+  [folder]
+  (list-file-objects folder #(.isDirectory %)))
+
+
+(defn filepath-parts
+  "Splits a file-path in its components. For a filename starting at root
+   the first item is an empty string. (does not expand ~/ to $HOME/)"
+  [f]
+  (let [f (io/file f)]
+    (->> (iterate #(.getParentFile %) f)
+	 (take-while identity )
+;;	 (concat (list f) )
+	 (map #(.getName %) )
+	 (reverse ))))
+
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; open a lazy sequence of files
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
