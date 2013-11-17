@@ -405,6 +405,47 @@ The 'actOnDir' flag tells whether the action should be applied to a directory be
 	 (map #(.getName %) )
 	 (reverse ))))
 
+;;  and some new utilities that might overlap with current 
+;;  functionality. 
+
+(defn filepath-parts
+  "Splits a file-path in its components. For a filename starting at root
+   the first item is an empty string. (does not expand ~/ to $HOME/)"
+  [f]
+  (let [f (io/file f)]
+    (->> (iterate #(.getParentFile %) f)
+	 (take-while identity )
+;;	 (concat (list f) )
+	 (map #(.getName %) )
+	 (reverse ))))
+
+(defn change-file-base
+  "Takes skipNum file-components of srcNme.
+   Skipping 0 from an absolute-path will result in no changes, for
+   a relative path it means expansion. The srcFile can either be
+   a string or a file-object."
+ [srcFile skipNum targetFolder]
+  (let [fileTail (->> srcFile
+		      (filepath-parts )
+		      (drop skipNum )
+		      (str/join FileSep ))]
+    (filename targetFolder fileTail)))
+
+
+(defn change-path
+  "Replace the complete path by target path."
+  [srcFile targetFolder]
+  (let [fileTail (->> srcFile
+		      (filepath-parts )
+		      (last ))]
+    (filename targetFolder fileTail)))
+
+
+(defn shell-path
+  "Escape whitespace to make path useable in shell-script."
+  [path]
+  (str/replace path #" " "\\\\ "))
+  
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

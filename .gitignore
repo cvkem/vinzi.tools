@@ -4,8 +4,8 @@
 /lib/
 /classes/
 vinzi.tools/target/
-.lein-failures
-.lein-deps-sum
+leinProj/target/
+.lein*
 *~
 *.class
 *#
