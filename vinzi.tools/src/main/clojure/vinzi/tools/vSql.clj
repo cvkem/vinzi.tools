@@ -851,6 +851,12 @@
       (vExcept/throw-except lpf " type " tpe " not recognized."))))
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  Auxiliaries to update a database table based on a record set
+;;     - update-recs
+;;     - add-missing-rows
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defn update-recs 
   "Update of a table for a sequence of records. The update-string is generated per record, such that
    the number of updates fields might differ for each record. The appropriate types are retrieved from
@@ -882,6 +888,33 @@
                    (sql/do-commands qry))) ]
     (doseq [rec recs]
       (update rec))))
+
+
+
+
+(defn add-missing-rows 
+    "Add rows from the data-set to the table for which the keyField
+    does not exist yet.
+    Assumes the key is a single column."
+  [schema tbl keyField data]
+  {:pre [(keyword? keyField) (sequential? data)]}
+  (let [lpf  "(add-missing-rows): " 
+        qTbl (qsp schema tbl) 
+        kFields (set (map keyField data))
+        kQry (str "SELECT " (name keyField) "  FROM " qTbl ";")
+        kDb   (sql/with-query-results res [kQry]
+                (let [kDb (set (remove nil? (map keyField res)))]
+                  (when-not (= (count kDb) (count res))
+                    (vExcept/throw-except lpf " table " qTbl 
+                      " seems to contains duplicate entries on key: " 
+                      keyField))
+                  kDb))
+        missing (set/difference kFields kDb)]
+    (when (seq missing)
+      (let [data (zipmap (map keyField data) data)
+            add (map data missing)]
+        (assert (seq add))
+        (apply sql/insert-records qTbl add)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
