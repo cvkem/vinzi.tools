@@ -24,6 +24,7 @@
 ;;    1. Replace parameters of shape ${  } in a string
 ;;    2. Do type conversion on strings according to a type-map  
 ;;       (special cases such as null, and NaN values handled too)
+;;    3. create compact strings
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn escape-replace-str 
@@ -213,5 +214,20 @@
     (sort-by first )
     (map second) ))
 
+
+(defn one-liner
+  "Make a one-line string by compressing white-space, replacing \n by a left arrow
+   and truncating the string (for display purposes)."
+   [s maxLen]
+   (let [;; trim string before doing the regexps
+         code (-> (if (> (count s) (* maxLen 2) )
+                     (apply str (take 50 s)) 
+                     s)
+                  (str/replace #"^\n" "")
+                  (str/replace #"\n" "\u2190")
+                  (str/replace #"\s+" " "))]
+     (-> (if (> (count code) 35)
+           (str (apply str (take 32 code)) "...")
+           code))))
 
 
