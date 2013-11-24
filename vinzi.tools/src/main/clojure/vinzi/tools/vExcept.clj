@@ -1,6 +1,7 @@
 (ns vinzi.tools.vExcept
   (:use	[clojure [pprint :only [pprint pp]]]
-        [clojure [stacktrace :only [print-stack-trace root-cause]]]
+        [clojure [stacktrace :only [print-stack-trace root-cause
+              print-cause-trace print-throwable]]]
         [clojure.tools [logging :only [error info trace debug warn]]])
   (:require [clojure.string :as str]))
            
@@ -55,25 +56,41 @@
            (vinzi.tools.vExcept/report except#)
            (throw except#)))))
 
+
+;; the Clojure trace tracks down all causes (not just the root-cause)
+(def ClojureTrace true)
+(def CauseDepth 10)
+
 (defn except-str
   "Extract an exception-msg from 'e' and prefix is with 'msg'. 
    If 'e' is an sqlException some additional fields and the next-exception are reported." 
   [msg e]
   (if e
     (with-out-str
-      (println msg 
-               "\nException of type: " (class e))
-      (if-let [rootCause (root-cause e)]
-        (print-stack-trace rootCause)
-        (println "No root-cause given"))
-      (println "Message: " (.getMessage e))
+      (if ClojureTrace
+        (do  
+          (print-throwable e)
+          (println "\nSTACKTRACE:")
+          (print-stack-trace e)
+          (println "CAUSE-TRACE with depth " CauseDepth ":")
+          (print-cause-trace e CauseDepth))
+        (do 
+          (println msg 
+                 "\nException of type: " (class e))
+          (if-let [rootCause (root-cause e)]
+            (print-stack-trace rootCause)
+            (println "No root-cause given"))
+          (println "Message: " (.getMessage e))))
+
+      ;; additional reporting on sql-exceptions
       (when (isa? (class e) java.sql.SQLException)
         (println "\tSQL-related Exception details:"
                  "\n\tErrorCode: " (.getErrorCode e)
                  "\n\tSQLState:  " (.getSQLState e))
         (when-let [n (.getNextException e)]
           (println "\nNext-message: " (.getMessage n)
-                   "\n\tNext-errorcode: " (.getErrorCode n)))))
+                   "\n\tNext-errorcode: " (.getErrorCode n))))
+      )
     (str msg  "(Exception is nil)")))
 
 (defn report 
