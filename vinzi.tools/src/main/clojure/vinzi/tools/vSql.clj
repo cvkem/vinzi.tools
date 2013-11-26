@@ -609,6 +609,7 @@
         schema  (strip-dQuotes schema)
         tblNme  (strip-dQuotes tblNme)
         sql (str "SELECT column_name, data_type, ordinal_position "
+                 "    , character_maximum_length, numeric_precision "
                  " FROM information_schema.columns "
                  " WHERE table_catalog = " (sqs catalog)
                  "    AND table_schema = " (sqs schema)
