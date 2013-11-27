@@ -444,7 +444,7 @@ The 'actOnDir' flag tells whether the action should be applied to a directory be
 (defn shell-path
   "Escape whitespace to make path useable in shell-script."
   [path]
-  (str/replace path #" " "\\\\ "))
+  (str/replace path #"(\s|\(|\))" "\\\\$1"))
   
 
 
