@@ -138,6 +138,7 @@
       (progress-entry :set-progress-edn (assoc ednDescr :get-line-count (str "Function: "(:get-line-count ednDescr)))))  ;; change function to string
     (vExcept/throw-except "The progressEdnFile is already set to: " @progressEdnFile)))
 
+
 (defn unset-progress-edn 
   "Unset the current progress.edn file"
   []
@@ -164,7 +165,8 @@
 
 
 
-(defn log-tracker "The log-tracker tracks a log-file and prints the message from 'showLevels' to the console, where 'showlevels' is a string or a collection of stings. The 'get-counts-log' returns count info on ALL levels.). If you provide a warnKill map then this tracker will isue warning or even kill the program when no log-activity is observed for the specified period, keys are :warnMinutes, :warnMessage, :killMinutes and :killMessage."
+(defn log-tracker "The log-tracker tracks a log-file and prints the message from 'showLevels' to the console, where 'showlevels' is a string or a collection of stings. The 'get-counts-log' returns count info on ALL levels.). If you provide a warnKill map then this tracker will isue warning or even kill the program when no log-activity is observed for the specified period, keys are :warnMinutes, :warnMessage, :killMinutes and :killMessage.
+NOTE: log-trackers also sets and unsets the edn-file."
   ([fName showLevels]
     (println "enter log-tracker-2")
     (log-tracker fName showLevels nil))

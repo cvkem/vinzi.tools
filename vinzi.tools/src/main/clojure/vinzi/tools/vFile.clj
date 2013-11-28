@@ -460,7 +460,8 @@ The 'actOnDir' flag tells whether the action should be applied to a directory be
   ([loc] (file-only-seq loc nil))
   ([loc filemask] (file-only-seq loc filemask nil))
   ([loc filemask dirmask]
-     (let [file (io/file loc)
+     (let [lpf "(file-only-seq): " 
+           file (io/file loc)
            fileOnly (->> file
                          (file-seq)
                          (filter #(.isFile %)))
@@ -479,7 +480,12 @@ The 'actOnDir' flag tells whether the action should be applied to a directory be
                              (drop-last)
                              (last)))
                dirmask (if (= (type dirmask) java.util.regex.Pattern)
-                         dirmask (re-pattern dirmask))]
+                         dirmask 
+                         (if (string? dirmask) 
+                           (re-pattern dirmask)
+                           (vExcept/throw-except lpf "dirMask should be"
+                             " a regExp or string, however received type:"
+                             (type dirmask) " with content: " dirmask)))]
            (filter #(re-find dirmask (get-dir %)) maskedFiles))
          maskedFiles))))
 
