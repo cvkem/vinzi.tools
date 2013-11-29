@@ -361,11 +361,17 @@ NOTE: log-trackers also sets and unsets the edn-file."
   "fName is the name of the file that should contain the memory report
    and interval is a reporting interval in seconds.
    (do not take interval too short as file needs to be openened/flushed 
-   on each iteration.)
-   Initial entries are taken from proc memInfo."
-  ([fName interval] (memory-tracker fName interval 10))
-  ([fName interval osDiv]
+   on each iteration).
+   Options: 
+     :osDiv append a snapshot of /proc/meminfo in 1 out of osDiv 
+         intervals (default -1, which means 1 in MAXLONG)
+     :activityDescr is a tekst to be put at the begin of the mem-trace
+     :append (boolean) when set to true (a value) the current file fName
+        will not be deleted/truncated."
+  [fName interval & opts]
   (let [memFile  "/proc/meminfo"
+        opts (apply hash-map opts)
+        osDiv (or (:osDiv opts) -1)
         get-os-mem-report #(->> (sh/sh "cat" memFile) 
                              (:out )) 
         stf (java.text.SimpleDateFormat. "HH:mm:ss.SSS")
@@ -381,12 +387,14 @@ NOTE: log-trackers also sets and unsets the edn-file."
                           (apply format "OS: Time %s MemTotal %sMb MemFree: %sMb SwapFree: %sMb\n"))))
         baseReport (str "### Dump of " memFile "\n" (get-os-mem-report) "###\n")
         fName (vFile/filename fName)
-        _ (when (vFile/file-exists fName)
+        _ (when (and (not (:append opts))
+                          (vFile/file-exists fName))
             (io/delete-file fName))
-        memTrack (io/writer fName)
+        memTrack (io/writer fName :append (:append opts))
         add-line (fn [l]
-                   (.write memTrack l)
-                   (.flush memTrack))
+                   (let [l (if (= (last l) \newline) l (str l \newline))]
+                     (.write memTrack l) 
+                     (.flush memTrack)))
         sleepMs (long (* interval 1000))
         rt (Runtime/getRuntime)
         Mb (* 1024 1024)
@@ -415,10 +423,13 @@ NOTE: log-trackers also sets and unsets the edn-file."
                           (.close memTrack))
         ] 
      (println "Logging memory to: " fName)
+     (when-let [ad (:activityDescr opts)]
+       (let [ad (str "#" (str/replace ad #"\n" "\n#"))]
+         (add-line ad)))
      (add-line baseReport)
      (.start mem-track-thread)
      {:stop-memory-tracker stop-memory-tracker}
-   )))
+   ))
 
 
 (defn test-memory-tracker []
