@@ -81,7 +81,7 @@
 (defn commandline-override-all 
   "Check if any of the parameters out of props in string args a key=value and if override it."
   [args props]
-  {:pre [(sequential? args) 
+  {:pre [(or (nil? args) (sequential? args))
          (or (map? props) (= (type props) java.util.Properties))]}
   ;;(println "keys of props are: " (keys props) " and props = " props)
     (reduce #(commandline-override args %2 %1) props (keys props)))
@@ -92,27 +92,42 @@
 
 
 (defn get-properties 
-  "Get the properites of a file, keywordize them and transform them according to typeMap."
-  ([propFile propDefs]
-    (let  [;; split the props-map in the two required maps
-           ;; this version is the preferred interface (change vinzi.eis.properties
-           typeMap (into {} (map #(vector (:name %) (:type %)) propDefs))
-           defMap  (into {} (map #(vector (:name %) (:default %)) propDefs))]
-      ;; TODO: add some checks on validity of sub-maps (wrong input)
-      (get-properties propFile defMap typeMap)))
-  ([propFile defMap typeMap]
+  "Get the properites of a file, keywordize them and transform them according to typeMap.
+   A 'propDefs' is a sequence of maps with keys :name, :type and :default 
+   (where the value of :name is passed as a keyword).
+   Opts are:
+     :prefix filter properties having this prefix. The :name in 'propDefs' should 
+        be without the prefix."
+  [propFile propDefs & opts]
   (let [lpf "(get-properties): "
+        opts (apply hash-map opts)
+        filter-prefix (fn [props]
+                        (if-let [prefix (:prefix opts)]
+                          (let [prefix (if (= (last prefix) ".") prefix (str prefix "."))
+                                lp (count prefix)]
+                            (debug lpf (str "limit properties of file " propFile 
+                                     " to prefix: '" prefix "'."))
+                            (->> props 
+                                 ;; a single reduce is more efficient.
+                                 (filter #(.startsWith (name (first %)) prefix) )
+                                 (map #(vector (apply str (drop lp (name (first %)))) (second %)) )
+                                 (into {} )))
+                          props))
+        typeMap (into {} (map #(vector (:name %) (:type %)) propDefs))
+        defMap  (into {} (map #(vector (:name %) (:default %)) propDefs))
+        ;; TODO: add some checks on validity of sub-maps (wrong input)
         report-missing-def (fn [props]
                              (let [pKeys (set (keys props))
                                    tKeys (set (keys typeMap))
                                    missingDef (set/difference pKeys tKeys)]
                                (when (seq missingDef)
-                                 (warn lpf "the properties: " (str/join ", " missingDef) "don't have a definition in the typeMap, and will be dropped"))
+                                 (warn lpf "the properties: " (str/join ", " missingDef) 
+                                    " don't have a definition in the typeMap, and will be dropped"))
                                props))]
     (-> (if (.exists (java.io.File. propFile))
           (-> propFile
-            (vProp/read-properties)
-            ;;((partial show " props="))
+            (vProp/read-properties )
+            (filter-prefix )
             (vMap/keywordize false))
           {}) ;; start with empty map and add the defaults.
       ;;((partial show " keywordized="))
@@ -121,6 +136,6 @@
       ;;((partial show " with defaults="))
       ((vMap/get-map-type-convertor typeMap) )
       ((partial show " after type-conversion="))
-      ))))
+      )))
 
 
