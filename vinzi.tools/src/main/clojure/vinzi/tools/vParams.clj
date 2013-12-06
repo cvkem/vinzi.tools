@@ -57,6 +57,8 @@
 ;; TODO: command-line overrides args   which overrides all props and which issues a warning/error if an option does not exist.
 ;;   (possibly ignoring options without an "=" sign)
 
+
+
 (defn commandline-override 
   "Check if parameter (name k) exists in array of string args assuming each string represents a key=value.
    If the key corresponding to (keyword k) exists in props.
@@ -64,22 +66,25 @@
     NOTE/TODO: date-transformation is not supported yet."
   [args k props]
   ;;(println "called commmandline-override with: args=" args " k=" k " and props=" props)
-  (if-let [v (get-param args (name k) nil)]
-    (let [kw (keyword k)
-          ;;_  (println " type of original: " (type (kw props)))
-          tp (type (kw props))
-          v (cond 
-              (= tp clojure.lang.Keyword) (keyword v)
-              (= tp java.lang.Boolean) (java.lang.Boolean/parseBoolean v)
-              (= tp java.lang.Long)    (java.lang.Long/parseLong v)
-              (= tp java.lang.Integer) (java.lang.Integer/parseInt v)
-              (= tp java.lang.Double)  (java.lang.Double/parseDouble v)
-              :else v)]
-    (assoc props kw v))
-    props))
+  (let [lpf "(commandline-override): "]
+    (if-let [v (get-param args (name k) nil)]
+      (let [kw (keyword k)
+            ;;_  (println " type of original: " (type (kw props)))
+            tp (type (kw props))
+            v (cond 
+                (= tp clojure.lang.Keyword) (keyword v)
+                (= tp java.lang.Boolean) (java.lang.Boolean/parseBoolean v)
+                (= tp java.lang.Long)    (java.lang.Long/parseLong v)
+                (= tp java.lang.Integer) (java.lang.Integer/parseInt v)
+                (= tp java.lang.Double)  (java.lang.Double/parseDouble v)
+                :else v)]
+      (debug lpf "Replace " kw " " (kw props) " --> " v) 
+      (assoc props kw v))
+      props)))
+
 
 (defn commandline-override-all 
-  "Check if any of the parameters out of props in string args a key=value and if override it."
+  "Check if any of the parameters out of 'propsr' in string args a key=value and if override it."
   [args props]
   {:pre [(or (nil? args) (sequential? args))
          (or (map? props) (= (type props) java.util.Properties))]}

@@ -84,7 +84,7 @@ Uses as-prop-str to convert both keys and values into strings."
             to-hashmap #(zipmap (map keyword (keys %1)) (vals %1))]
   (to-hashmap props))))  ;; translate java.util.properties to a normal hash-map (otherwise assoc does not work)
   ;; also translating string-keys to keywords
-            ([fName default]
+  ([fName default]
     {:pre [(map? default)]}
     (if (vFile/file-exists fName)
       (into default (read-properties fName))

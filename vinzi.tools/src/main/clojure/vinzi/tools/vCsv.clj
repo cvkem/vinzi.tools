@@ -86,7 +86,8 @@
 
 
 
-;; this is a cdp-specific function. cdp provides the extend-path stuff, but this is wider applicable
+;; this is a cdp-specific function. cdp provides the extend-path implementation, 
+;; but this interface could also be used by others (has wider range of applicability)
 (defn extend-csv-path "If a global symbol 'extend-path exists in the namespace of the caller
  this function is applied, otherwise the current directory is prefixed."
   [csvFile]

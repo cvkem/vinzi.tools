@@ -94,8 +94,9 @@
     (str msg  "(Exception is nil)")))
 
 (defn report 
-  "Print report for an exception, if this exception has not been reported already.    
-   (including one step higher in the exception-chain)."
+  "If this specific exception was not reported already it will be expanded with a (clojure-) stack-trace,
+   the expanded exception will be reported in the logging system and nil is returned.
+   If this exception matches the last exception it is reported, but the messag is not expanded."
   ([e] (report "" e))
   ([msg e]
     (let [msg (if (is-lastException? e) 

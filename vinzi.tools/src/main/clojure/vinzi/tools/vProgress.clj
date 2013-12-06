@@ -28,8 +28,8 @@
    will not terminate (preferably put it in finally-clause).
    This progress-tracker also signals lack of log-file activity
    and warns after 5 minutes and kills the process after 60 minutes."
-  [activityDescr logFile onErrMsg]
-  {:pre [(string? activityDescr) (and logFile onErrMsg)]}
+  [activityDescr logFile]
+  {:pre [(string? activityDescr) (string? logFile)]}
   (let [lpf "(gen-progress-tracker): "
         memFile (if (re-find #"log$" logFile)
                   (str/replace logFile #"log$" "mem")
@@ -58,10 +58,24 @@
         "' missing or not writeable? [Abort program]")))
     ;; now build the interface functions
     (let [get-num-errors (fn [] (:ERROR (get-counts-log)))
-          no-errors (fn [] (let [cnts (get-counts-log)]
-                             (if (= (get-num-errors) 0)
-                               true
-                               (println "ERRORS detected " onErrMsg))))
+          initialErrs (get-num-errors)
+          lastReportedErrs (atom {:newErrs  0
+                                  :totErrs  initialErrs})
+          ;; auxiliary for the atomic update
+          num-new-errors-aux #(swap! lastReportedErrs (fn [v] (let [numErrs (get-num-errors)]
+             ;; two when for debugging only
+             (when-not (map? v) 
+               (debug lpf "num-new-errors-aux: old value of type " (type v) " and value " v))
+            (when-not (number? numErrs) 
+              (debug lpf "num-new-errors-aux: received numErrs=" numErrs))
+                                                          {:newErrs (- numErrs (:totErrs v))
+                                                           :totErrs numErrs})))
+          ;; return number of new-errors, or nil when there are no new errors
+          num-new-errors #(let [ne (:newErrs (num-new-errors-aux))]
+                            (when (> ne 0) ne))
+          ;;  report total errors since start of tracker or nil. No update of newErrors!
+          total-errors   #(let [te (- (get-num-errors) initialErrs)]
+                            (when (> te 0) te))
           add-progress-log (fn [phase msg]
               ;; Adds a progress message to the log-file
               ;; Return the (enriched message)
@@ -80,22 +94,20 @@
             ;;Clean-up log-trackers and finalize metaData and progress data.
             (switch-phase :finish)
             (add-progress-log :finish finalMessage)
-            (info (str "---------------------------------------------"
-                 "----------------------\n"))
-            (if (no-errors)
-              (info (str "The process: " activityDescr
-                      " reported no errors"))
-              (info (str "ERRORS detected during process: " activityDescr 
-                  ". Inspect " logFile " for detailled information." )))
-            (info (str "---------------------------------------------"
-                 "----------------------\n"))
+            (info (str "-------------------------------------------------------\n")
+                       (if-let [te (total-errors)]
+                         (str "In total " te " ERRORS detected during process:" activityDescr 
+                           ".\n Inspect " logFile " for detailled information." )
+                         (str "The process:" activityDescr "reported no errors"))
+                       "-------------------------------------------------------\n")
             (stop-memory-tracker)
             (let [logStats (stop-log-tracker)]
               (println "\nThe log-file " logFile " contains:")
               (pprint logStats)))]
         {:shutdown-progress-tracker shutdown-progress-tracker
          :add-progress-log          add-progress-log
-         :no-errors                 no-errors
+         :num-new-errors            num-new-errors
+         :total-errors              total-errors
          :get-counts-log            get-counts-log 
          :get-num-errors            get-num-errors})))  
 
