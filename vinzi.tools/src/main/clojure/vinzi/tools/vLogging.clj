@@ -157,3 +157,36 @@
      (print-logTrace msg# :error)))
 
 
+
+(defn force-realization 
+  "Recursively force realization of datastructure x.
+   This function is used to enforce that printing to standard-output
+   is realizated before "
+  [x]
+  (if (map? x)
+    (doall (zipmap (keys x) (doall (map force-realization (vals x)))))
+    (if (vector? x)
+      (vec (map force-realization x)) ;; vector forces realization
+      (if (sequential? x)
+        (doall (map force-realization x))
+        x))))
+        
+(defmacro lfs 
+  "Capture the output of the second application of of form 'x'. 
+  The first iteration of is thrown away to ensure the print-statements by 
+   lazy computations does not get mingled with the desired output
+   for logging (and is neither printed to the standard-output).
+   Of course form 'x' should be free of side-effects."
+  [x] 
+  `(do (force-realization ~x)  
+       (with-out-str ~x)))
+
+(defmacro lpps 
+  "Capture the pprinted version of form 'x'. The first iteration of
+   (pprint ..)  is thrown away to ensure the print-statements by 
+   lazy computations does not get mingled with the desired output
+   for logging (and is neither printed to the standard-output)."
+  [x] 
+   `(do (force-realization ~x)
+        (with-out-str (pprint ~x)))) 
+
