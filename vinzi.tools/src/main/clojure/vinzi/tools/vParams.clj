@@ -21,7 +21,7 @@
 
 (defn get-param "Extract a parameter staring with 'label=' from the
   argument list."
-  ([args label] (get-param label args nil))
+  ([args label] (get-param args label nil))
   ([args label default]
     (if (nil? args)
       nil
