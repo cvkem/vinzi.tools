@@ -97,8 +97,23 @@
        nil  "~/ble" (str (get (System/getenv) "HOME") "/ble")
 ;       "/folder1/folder2/" "../../file"   "/file"
 ;       "/folder1/folder2/" "../"   "/folder1"
-       
-       ))
+       )
+
+       ;;;using more than two arguments!!
+       (is (= (vFile/filename "a" "b" "c.clj") "a/b/c.clj"))
+       (is (= (vFile/filename "/a" "b" "c.clj") "/a/b/c.clj"))
+       (is (= (vFile/filename "a" "/b" "c.clj") "/b/c.clj"))
+       (is (= (vFile/filename "a" "./b" "c.clj") "./b/c.clj"))
+       (is (= (vFile/filename "a" "~/b" "c.clj") 
+              (str (get (System/getenv) "HOME") "/b/c.clj")))      
+       (is (= (vFile/filename "a" "b" "c" "d.clj") "a/b/c/d.clj"))
+       (is (= (vFile/filename "a" "b" "c" "./d.clj") "./d.clj"))
+       (is (= (vFile/filename "a" "b" "./c" "d.clj") "./c/d.clj"))
+       (is (= (vFile/filename "a" "./b" "c" "d.clj") "./b/c/d.clj"))
+       (is (= (vFile/filename "a" "b" "." "c" "d.clj") "./c/d.clj"))
+       (is (= (vFile/filename "a" "b" "./" "c" "d.clj") "./c/d.clj"))
+       (is (= (vFile/filename "a" "./b" "c" "d.clj") "./b/c/d.clj"))
+       )
 
 (deftest test-strip-last-folder
   (are [path res]  (= (vFile/strip-last-folder path) res)

@@ -128,7 +128,14 @@
                 separator (if (= FileSep (str (last base))) "" FileSep)
                 res (str base separator fName)]
             (trace lpf "Generated filename: " res)
-            res))))))
+            res)))))
+  ([base base2 & rst]
+   (let [revFilename #(filename %2 %1) ;; cumulator is last postion of filename
+         tail (if (= (count rst) 1) 
+                (first rst)
+                (reduce revFilename  (reverse rst)))
+         tail (filename base2 tail)]
+    (filename base tail))))
   
   
 (defn get-current-dir 
