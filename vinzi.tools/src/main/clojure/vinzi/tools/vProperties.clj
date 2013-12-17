@@ -1,12 +1,30 @@
 (ns vinzi.tools.vProperties
-;;  (:use	[clojure [pprint :only [pprint pp]]]
+;  (:use	[clojure [pprint :only [pprint pp]]]
 ;;        [clojure [stacktrace :only [print-stack-trace root-cause]]]
 ;;        [clojure.tools [logging :only [error info trace debug warn]]])
+  (:use       [clojure.tools [logging :only [error info trace debug warn]]])
   (:require [clojure
              [string :as str]]
             [vinzi.tools [vFile :as vFile]])
   (:import [java.io     File   BufferedReader FileInputStream FileOutputStream BufferedInputStream]
            [java.util   Properties]))
+
+
+(defn filter-prefix  
+  "Filter the properties having prefix, and
+   return the filtered properties without this prefix."
+  [props prefix]
+  (if prefix 
+    (let [lpf "(filter-prefix): "
+          prefix (if (= (last prefix) \.) prefix (str prefix "."))
+          lp (count prefix)]
+      (debug lpf (str "limit properties to prefix: '" prefix "'."))
+      (->> props 
+        ;; a single reduce is more efficient.
+        (filter #(.startsWith (name (first %)) prefix) )
+        (map #(vector (apply str (drop lp (name (first %)))) (second %)) )
+        (into {} )))
+    props))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

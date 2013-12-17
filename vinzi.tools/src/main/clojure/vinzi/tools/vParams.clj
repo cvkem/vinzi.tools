@@ -106,18 +106,6 @@
   [propFile propDefs & opts]
   (let [lpf "(get-properties): "
         opts (apply hash-map opts)
-        filter-prefix (fn [props]
-                        (if-let [prefix (:prefix opts)]
-                          (let [prefix (if (= (last prefix) ".") prefix (str prefix "."))
-                                lp (count prefix)]
-                            (debug lpf (str "limit properties of file " propFile 
-                                     " to prefix: '" prefix "'."))
-                            (->> props 
-                                 ;; a single reduce is more efficient.
-                                 (filter #(.startsWith (name (first %)) prefix) )
-                                 (map #(vector (apply str (drop lp (name (first %)))) (second %)) )
-                                 (into {} )))
-                          props))
         typeMap (into {} (map #(vector (:name %) (:type %)) propDefs))
         defMap  (into {} (map #(vector (:name %) (:default %)) propDefs))
         ;; TODO: add some checks on validity of sub-maps (wrong input)
@@ -132,7 +120,7 @@
     (-> (if (.exists (java.io.File. propFile))
           (-> propFile
             (vProp/read-properties )
-            (filter-prefix )
+            (vProp/filter-prefix (:prefix opts))
             (vMap/keywordize false))
           {}) ;; start with empty map and add the defaults.
       ;;((partial show " keywordized="))
