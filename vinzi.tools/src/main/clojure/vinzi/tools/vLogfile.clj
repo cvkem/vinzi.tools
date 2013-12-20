@@ -83,8 +83,9 @@
 
 
 (defn progress-entry-func 
-  "Add a progress.edn entry with 'currFunc', 'process' 'entity' and 'data' (only entity is optional).
-   Prefered use via macro (progress-entry).
+  "Add a progress.edn entry with 'currFunc', 'process' 'entity' and 'data' (entity and data are optional).
+   The entity is used to indicate the context in which the data should be interpreted.
+   (Prefered use via macro (progress-entry).
    If the data contains function symbols these will be translated to 'fn: name', otherwise the 
    .edn file is not readible. "
   ([currFunc process] ;; just a checkpoint with a tag (process) 

@@ -107,42 +107,66 @@
   (swap! logTrace (fn[_] [])))
 
 
-(defn print-logTrace
-  "Print a numbered logTrace prefixed by a message.
-   All lines are prefixed by a number and a token D(debug) or T(race) t,o indicate the log-level."
+(defn get-logTrace-func
+  "Extract a numbered logTrace prefixed by a message.
+   All lines are prefixed by a number and a token D(debug) or T(race) 
+  to indicate the log-level.
+  The function clears the current log-trace and returns the full message."
   [msg level]
   (let [ltHeader (str "<![START LOGTRACE[ " (str/upper-case (name level)) ": ")
         ;; get the current log-trace (or its tail)
         lt (let [maxTraceItems (if (= level :warn) 10 100)
-                 lt @logTrace
-                 dropTraceItems (- maxTraceItems (count lt))]
+                 lt @logTrace]
+               ;;  dropTraceItems (- maxTraceItems (count lt))]
              ;; TODO (if (> dropTraceItems 0) ) ;; PREFIX A MESSAGE ABOUT DROPPING
-             (drop dropTraceItems lt))
-        ltFooter "]END LOGTRACE]>"
+             (if (> (count lt) maxTraceItems)
+               (drop (- (count lt) maxTraceItems) lt)
+               lt))
+        ltFooter "\n]END LOGTRACE]>"
         get-msg-keyword (fn []
-                          ;; get the keyword by removing #123 infixes and suffixes from the message.
-                          ;;  (Used to make unique messages that map to the same trackTraceCount key.
+         ;; get the keyword by removing #123 infixes and suffixes from the message.
+         ;;  (Used to make unique messages that map to the same trackTraceCount key.
                           (keyword (str/replace msg #"\s*#\d+\s*" "")))
         update-cnt (fn []
-                    ;; Increase the count for current key and return the current occurance-count.
+         ;; Increase the count for current key and return the current occurance-count.
                     (let [msgKey (get-msg-keyword)]
-                      (msgKey (swap! trackTraceCount update-in [msgKey] (fn [v] (if (nil? v) 1 (inc v)))))))
+                      (msgKey (swap! trackTraceCount update-in [msgKey] 
+                                     (fn [v] (if (nil? v) 1 (inc v)))))))
         line-string (fn [lineItems lineNo]
+(println "TMP: ADDING ITEM: " (first lineItems))
                      (str lineNo " "(first lineItems) ": "
                           (str/join " " (map unwrap-item (rest lineItems)))))]
     (clear-logTrace)
     (when (<= (update-cnt) maxTraces)
-      ;; TODO: should it be better to print the trace one level higher at warn-level (or should we prune logging via the log4j.xml/logback file"))
-      (let [fullMsg (str ltHeader msg "\n" (str/join "\n" (map line-string lt (rest (range)))) ltFooter)]
-        (if (= level :warn)
-          (ctl/warn fullMsg)
-          (ctl/error fullMsg))))))
+      ;; TODO: should it be better to print the trace one level higher at warn-level 
+      ;; (or should we prune logging via the log4j.xml/logback file"))
+      (let [fullMsg (str ltHeader msg "\n" (str/join "\n" 
+                        (map line-string lt (rest (range)))) ltFooter)]
+        fullMsg))))
 
-(defn ddebug 
-  "This function outputs directly to the log-file, and does not wait for an error of warning to emit its message."
+(defmacro print-logTrace
+  "Print a numbered logTrace prefixed by a message.
+   All lines are prefixed by a number and a token D(debug) or T(race) 
+   to indicate the log-level.
+  (using macro such that the warn/error point to the correct file)."
+  [msg level]
+  `(let [fullMsg# (get-logTrace-func ~msg ~level)]
+        (if (= ~level :warn)
+          (ctl/warn fullMsg#)
+          (ctl/error fullMsg#))))
+
+;(defn ddebug 
+;  "This function outputs directly to the log-file, and does not wait for an error of warning to emit its message."
+;  [& args]
+;  (let [fullMsg (apply str args)]
+;    (ctl/debug fullMsg)))
+
+(defmacro ddebug 
+  "This direct-debug macro outputs directly to the log-file, and does not wait for an error of warning 
+   to emit its message."
   [& args]
-  (let [fullMsg (apply str args)]
-    (ctl/debug fullMsg)))
+  `(let [fullMsg# (str ~@args)]
+    (ctl/debug fullMsg#)))
 
 (defmacro warn
   "Print the full logTrace to the log-file with args as a prefix-message at warn-level."
