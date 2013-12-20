@@ -42,7 +42,9 @@
       (first res))))
 
 (defn enumerate [qTbl name groupBy]
-  (let [groupBy (str/replace groupBy #"%f%" name)
+  (let [groupBy (if (seq groupBy)
+                  (str/replace groupBy #"%f%" name)
+                  name)
         qry (str " SELECT " groupBy " AS " name 
                     "\n\t, count(*) AS num "
                     "\n\tFROM " qTbl 
@@ -61,10 +63,11 @@
         qTbl (qsp schema name)
         report-column
           (fn [{:keys [name data_type validate groupBy] :as cDescr}]
-            (let [res (case validate
-                        "min-max-avg" (min-max-avg qTbl name)
-                        "min-max-avg-len" (min-max-avg-len qTbl name)
-                        "enumerate" (enumerate qTbl name groupBy)
+            (let [qName (qs name)
+                  res (case validate
+                        "min-max-avg" (min-max-avg qTbl qName)
+                        "min-max-avg-len" (min-max-avg-len qTbl qName)
+                        "enumerate" (enumerate qTbl qName groupBy)
                         (vExcept/throw-except lpf "validation " 
                             validate " is not known"))]
               {:name name

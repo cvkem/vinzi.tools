@@ -22,6 +22,13 @@
              [vXml :as vXml]])
 )
 
+(def  fix-name (atom identity))
+
+(defn force-lower-case-name 
+  "Can be used for mysql. Forces field-names to be presented in lower-case" 
+  []
+  (reset! fix-name str/lower-case))
+
 (defn add-colDescr
   [tblDef]
   (let [{:keys [name schema]} tblDef
@@ -38,7 +45,9 @@
                                                 }) )
                       (map (remove-nil :num_char) )
                       (map (remove-nil :precision) )
-                      (map #(assoc % :name (str/lower-case (:name %))) ))]
+                      ;; mysql translate to lower-case
+                      (map #(assoc % :name (@fix-name (:name %))) )
+                      )]
      (assoc tblDef :colDescr colDescr)))
 
 
@@ -119,14 +128,20 @@
                      " field-descr " fld " does not have a data_type." ))
                  tpe (str/lower-case tpe)
                  vld (cond
-                       (= tpe "integer") {:validate "min-max-avg"}
+                       (or (= tpe "integer") 
+                           (= tpe "smallint")
+                           (= tpe "bigint")) {:validate "min-max-avg"}
+                       (= tpe "numeric") {:validate "min-max-avg"}
                        (= tpe "double precision") {:validate "min-max-avg"}
                        (.startsWith tpe "date") {:validate "enumerate"
                                                  :groupBy "EXTRACT(YEAR FROM %f%) || '-' || EXTRACT(MONTH FROM %f%)"}
                        (.startsWith tpe "timestamp") {:validate "enumerate"
                                                  :groupBy "EXTRACT(YEAR FROM %f%) || '-' || EXTRACT(MONTH FROM %f%)"}
                        (or (.startsWith tpe "varchar")
+                           (.startsWith tpe "character varying")
+                           (.startsWith tpe "char")
                            (= tpe "text"))   {:validate "min-max-avg-len"}
+                       (.startsWith tpe "bool") {:validate "enumerate"}
                        :else {:validate "unknown"}
                        )]
               (into fld vld))) ]
@@ -188,7 +203,11 @@
    
 (defn read-validate-description
   [fName]
-  (edn/read-string (slurp fName)))
+  (let [lpf "(read-validate-description): "]
+    (when-not (.endsWith fName ".edn")
+      (warn lpf (str "Expecting edn, but file '" fName 
+                   "' does not have .edn extentions")))
+    (edn/read-string (slurp fName))))
 
 
 ;;(def validateXmlDescr 
