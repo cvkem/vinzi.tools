@@ -16,6 +16,21 @@
 (def TimeZoneId "Europe/Amsterdam")
 (def TimeZone (java.util.TimeZone/getTimeZone TimeZoneId))
 
+
+(def  DaysPerMonth {1 31
+                    2 28  ;; no correction for leap-years.
+                    3 31
+                    4 30
+                    5 31
+                    6 31
+                    7 30
+                    8 31
+                    9 30
+                    10 31
+                    11 30
+                    12 31})
+
+
 (defn correct-time-zone 
   "Correct a UTC-time in millis for the current timeZone on that time
     (so for Ams the correction is +01 in Winter and +02 during Summer)."
