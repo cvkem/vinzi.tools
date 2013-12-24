@@ -13,10 +13,10 @@
 
 
 (defn split-recs 
-  "Transform a record (map or xrel) by turning all 'kKeys' into a new record and storing all other data in a separate
-   map under the 'otherKeys'."
-  [rec kKeys otherKey]
-  {:pre [(or (map? rec) (sequential? rec)) (sequential? kKeys) (keyword? otherKey)]}
+  "Transform a xrelation (set or sequential) by turning all 'kKeys' into a new record 
+  and storing all other data in a separate map under the 'otherKeys'."
+  [recs kKeys otherKey]
+  {:pre [(or (set? recs) (sequential? recs)) (sequential? kKeys) (keyword? otherKey)]}
   (let [split-rec-aux (fn [rec]
                         (let [nk (-> rec
                                  (keys)
@@ -25,9 +25,10 @@
                                  (seq ))]
                         (-> (select-keys rec kKeys)
                           (assoc otherKey (select-keys rec nk)))))]
-    (if (map? rec)
-      (split-rec-aux rec)
-      (map split-rec-aux rec)))) 
+;    (if (map? rec)
+;      (split-rec-aux rec)
+;      (map split-rec-aux rec)))) 
+       (map split-rec-aux recs)))   
 
 
 ;(defn join-recs
