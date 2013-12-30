@@ -3,7 +3,155 @@
          [clojure [stacktrace :only [print-stack-trace root-cause]]]
 	   [clojure.tools [logging :only [error info trace debug warn]]])
   (:require [clojure.edn :as edn]
-            [clojure.java [io :as io]]))
+            [clojure.java [io :as io]]
+            [vinzi.tools.vExcept :as vExcept]))
+
+
+(defn get-log-reader-aux 
+  "Return a reader that maintains a log of read strings."
+  [rdr]
+  (let [;;rdr (java.io.StringReader. content) 
+        state (atom {:read []     ;; :read buffer is only item that requires atom
+                     :orig-reader rdr})
+        append-line (fn [line]
+                      (swap! state (fn [s] (assoc s :read (conj (:read s) line))))) 
+        logReader (proxy [java.io.Reader] []
+                     (close [] (println "Close")
+                               (.close rdr))
+                     (mark [long ahead] (println "mark") 
+                                        (.mark rdr ahead))
+                     (markSupported [] (println "markSupported")
+                                       (.markSupported rdr))
+                     (read 
+                       ([] ;;(println "Read without args called")
+                           (let [ret (.read rdr)]
+                             (when (>= ret 0)
+                               (append-line (str (char ret))))
+                             ret))
+                       ([buff]  (println "Enter read with single par") 
+                                (let [ret (.read rdr buff)]
+                                  (when (>= ret 0)
+                                    (let[content (if (= (class buff) java.nio.CharBuffer)
+                                                   (.toString buff)
+                                                   (apply str buff))]
+                                      (append-line content)))
+                                 ret))
+                       ([buff off len] (println "read with 3 pars")
+                                       (let [ret (.read rdr buff off len)]
+                                         (when (>= 0 ret)
+                                           (append-line (apply str (drop off buff))))
+                                         ret))
+                       )
+                     (ready [] (println "ready")
+                               (.ready rdr))
+                     (reset [] (println "reset")
+                               (.reset rdr))
+                     (skip [n]  (println "skip")
+                                (.skip rdr n))
+            )
+        report-error-status (fn [] 
+                              ;; reports status (what is read, and what is not
+                              ;; and forwards orig-reader (without mark/reset)
+                              (let [maxChars 160
+                                         ca (char-array maxChars)
+                                         ret (.read rdr ca) 
+                                         ca (apply str ca) ]
+                                     (str "vEdn/log-reader READ: " 
+                                          (apply str (:read @state))
+                                        "\nNEXT CHARS (max. " maxChars ") : " ca)))
+        ]
+    (swap! state assoc :reader logReader
+                       :report-error-status report-error-status)
+    @state)) ;; deref immediately (use report-error-status to inspect)
+
+(defn get-log-str-reader 
+  "Turn the content into a string-reader and package as a log-reader."
+  [content]
+  {:pre [(string? content)]}
+  (let [rdr (java.io.StringReader. content)]
+    (get-log-reader-aux rdr)))
+
+(defn get-log-file-reader 
+  "Turn the content into file-reader and package as a log-reader.
+   The parameter 'f' should be a java.io.File or a filename (string)."
+  [f]
+  {:pre [(or (isa? (class f) java.io.File) (string? f))]}
+  (let [rdr (java.io.FileReader. f)]
+    (get-log-reader-aux rdr)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  Reading forms from string or from file
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; cdp version
+;(defn open-pushback-file
+;  ([fName] (open-pushback-file fName 1))
+;  ([fName size]
+;     (java.io.PushbackReader. (java.io.FileReader. fName))))
+
+
+(defn open-pushback-stream 
+  "Generate a push-back-reader for the provided stream (a reader)."
+  [rdr]
+  (java.io.PushbackReader. rdr))
+
+
+
+
+(defn- read-form-aux
+  "Read a form from a resource. The 'log-reader' is a reader
+   containing the content. Normally you should use read-form-str or read-form-file
+   to read a (series) of forms.
+   Returns an array with one or more forms (so adds an additional array!)"
+  [log-reader]
+  {:pre [(map? log-reader)]}
+  (letfn [(skip-start-form 
+            [f]
+            ;; skip white-space and return true if not EOF
+            (when (.ready f)
+              (let [nextChar (.read f)]
+                (when (>= nextChar 0)   ;; EOF is signaled by value -1
+                  ;;(println "reading: " nextChar "('" (char nextChar) "')")
+                  (if (not (#{9 10 13 32} nextChar))  ;; not in "\t\n\r " 
+                    (do
+                      ;;(println "unreading it")
+                      (.unread f nextChar)
+                      true) ;; new form (non-whitespace) detected
+                      (recur f))))))
+          (end-of-code? 
+            [forms]
+            ;; an empty set marks the end of the code
+            (= (last forms) ()))
+          (readFormList [f cumm]
+                        ;;(println "readForm: " cumm)
+                        (if (end-of-code? cumm)
+                          (drop-last cumm)
+                          (if (skip-start-form f)
+                            (recur f (conj cumm (read f))) ;; read one form
+                            cumm)))]
+   (let [{:keys [reader report-error-status]} log-reader] 
+     (try
+       (-> reader
+          (open-pushback-stream ) 
+          (readFormList []))
+       (catch Throwable ex
+         (let [status (report-error-status)]
+;;           (println " exception CAUGHT: report-error-status: " status)
+           (vExcept/report-rethrow status ex)))
+       (finally 
+         (.close reader))
+       ))))
+ 
+(defn read-form-str "Read a form from a string."
+  [s]
+  (read-form-aux (get-log-str-reader s)))
+
+(defn read-form-file 
+  "Read a form from a file with name 'fName'."
+  ;; currently not used
+  [f]
+  (read-form-aux (get-log-file-reader f)))
 
 
 ; (def lazy-open
@@ -34,11 +182,6 @@
 ;; (lazy-seq (read-line (open-file file)))
 
 
-
-(defn open-pushback-file
-  ([fName] (open-pushback-file fName 1))
-  ([fName size]
-     (java.io.PushbackReader. (java.io.FileReader. fName))))
 
 
 (defn read-edn-file 
@@ -92,3 +235,6 @@
   (with-open [out (io/writer fName :append true)]
     (binding [*out*  out]
       (prn data))))
+
+
+
