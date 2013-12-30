@@ -10,11 +10,9 @@
 (defn get-log-reader-aux 
   "Return a reader that maintains a log of read strings."
   [rdr]
-  (let [;;rdr (java.io.StringReader. content) 
-        state (atom {:read []     ;; :read buffer is only item that requires atom
-                     :orig-reader rdr})
+  (let [read-log (atom [])
         append-line (fn [line]
-                      (swap! state (fn [s] (assoc s :read (conj (:read s) line))))) 
+                      (swap! read-log conj line)) 
         logReader (proxy [java.io.Reader] []
                      (close [] ;;(println "Close")
                                (.close rdr))
@@ -57,12 +55,12 @@
                                          ret (.read rdr ca) 
                                          ca (apply str ca) ]
                                      (str "vEdn/log-reader READ: " 
-                                          (apply str (:read @state))
+                                          (apply str  @read-log)
                                         "\nNEXT CHARS (max. " maxChars ") : " ca)))
         ]
-    (swap! state assoc :reader logReader
-                       :report-error-status report-error-status)
-    @state)) ;; deref immediately (use report-error-status to inspect)
+    {:orig-reader rdr
+     :reader logReader
+     :report-error-status report-error-status}))
 
 (defn get-log-str-reader 
   "Turn the content into a string-reader and package as a log-reader."
