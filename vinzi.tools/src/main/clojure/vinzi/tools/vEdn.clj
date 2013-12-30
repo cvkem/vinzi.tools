@@ -16,11 +16,11 @@
         append-line (fn [line]
                       (swap! state (fn [s] (assoc s :read (conj (:read s) line))))) 
         logReader (proxy [java.io.Reader] []
-                     (close [] (println "Close")
+                     (close [] ;;(println "Close")
                                (.close rdr))
-                     (mark [long ahead] (println "mark") 
+                     (mark [long ahead] ;;(println "mark") 
                                         (.mark rdr ahead))
-                     (markSupported [] (println "markSupported")
+                     (markSupported [] ;;(println "markSupported")
                                        (.markSupported rdr))
                      (read 
                        ([] ;;(println "Read without args called")
@@ -28,7 +28,7 @@
                              (when (>= ret 0)
                                (append-line (str (char ret))))
                              ret))
-                       ([buff]  (println "Enter read with single par") 
+                       ([buff] ;; (println "Enter read with single par") 
                                 (let [ret (.read rdr buff)]
                                   (when (>= ret 0)
                                     (let[content (if (= (class buff) java.nio.CharBuffer)
@@ -36,17 +36,17 @@
                                                    (apply str buff))]
                                       (append-line content)))
                                  ret))
-                       ([buff off len] (println "read with 3 pars")
+                       ([buff off len] ;;(println "read with 3 pars")
                                        (let [ret (.read rdr buff off len)]
                                          (when (>= 0 ret)
                                            (append-line (apply str (drop off buff))))
                                          ret))
                        )
-                     (ready [] (println "ready")
+                     (ready [] ;; (println "ready")
                                (.ready rdr))
-                     (reset [] (println "reset")
+                     (reset [] ;;(println "reset")
                                (.reset rdr))
-                     (skip [n]  (println "skip")
+                     (skip [n]  ;;(println "skip")
                                 (.skip rdr n))
             )
         report-error-status (fn [] 
@@ -100,12 +100,11 @@
 
 
 (defn- read-form-aux
-  "Read a form from a resource. The 'log-reader' is a reader
+  "Read a form from a resource. The 'pb-reader' is a reader
    containing the content. Normally you should use read-form-str or read-form-file
    to read a (series) of forms.
    Returns an array with one or more forms (so adds an additional array!)"
-  [log-reader]
-  {:pre [(map? log-reader)]}
+  [pb-reader]
   (letfn [(skip-start-form 
             [f]
             ;; skip white-space and return true if not EOF
@@ -130,28 +129,40 @@
                           (if (skip-start-form f)
                             (recur f (conj cumm (read f))) ;; read one form
                             cumm)))]
+   (readFormList pb-reader [])))
+
+(defn logged-read
+  "Read from the log-reader and process it with the processor.
+   Exceptions will be caught for reporting and rethown after 
+   logging the extended message to the log-file.
+   (the provided log-reader is wrapped by a pushback-reader)"
+  [stream-processor log-reader]
+  {:pre [(fn? stream-processor) (map? log-reader)]}
    (let [{:keys [reader report-error-status]} log-reader] 
      (try
        (-> reader
           (open-pushback-stream ) 
-          (readFormList []))
+          (stream-processor ))
        (catch Throwable ex
          (let [status (report-error-status)]
 ;;           (println " exception CAUGHT: report-error-status: " status)
            (vExcept/report-rethrow status ex)))
        (finally 
          (.close reader))
-       ))))
+       )))
+ 
  
 (defn read-form-str "Read a form from a string."
   [s]
-  (read-form-aux (get-log-str-reader s)))
+  (logged-read read-form-aux (get-log-str-reader s)))
 
 (defn read-form-file 
   "Read a form from a file with name 'fName'."
   ;; currently not used
   [f]
-  (read-form-aux (get-log-file-reader f)))
+  (logged-read read-form-aux (get-log-file-reader f)))
+
+;; NOTE: below it is shown how the lazy file is used to prepare a lazy edn reader.
 
 
 ; (def lazy-open
@@ -185,17 +196,21 @@
 
 
 (defn read-edn-file 
-  "Reads a single form of a file. If you like to put multiple data-item in a file, store it in a container (list, vector, hash-map).
-   or use read-edn-lazy-file, which assumes the file/stream contains a sequence of forms."
-  [fName]
-  (with-open [stream (java.io.PushbackReader. (java.io.FileReader. fName))]
-    (edn/read stream)))
+  "Reads a single form of a file 'f'. If you like to put multiple data-item in a file,
+   store it in a container (list, vector, hash-map).
+   Does extended error reporting via log-reader to show exactly the location where
+   reading failed in case of an error."
+  [f]
+;;  (with-open [stream (java.io.PushbackReader. (java.io.FileReader. fName))]
+;;    (edn/read stream)))
+ (logged-read edn/read (get-log-file-reader f)))
 
 (def ^:dynamic debugging true)
 
  
 (defn read-edn-lazy-file 
-  "Reads a lazy sequence of forms from a file."
+  "Reads a lazy sequence of forms from a file.
+  NOTE:  the lazy open does not have extended error reporting yet!"
   [fName]
   (let [lpf "(read-edn-lazy-file): "
 ;        read-entry (if debugging
