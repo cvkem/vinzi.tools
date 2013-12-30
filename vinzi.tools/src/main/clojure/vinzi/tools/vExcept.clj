@@ -69,6 +69,8 @@
     (with-out-str
       (if ClojureTrace
         (do  
+          (when (seq msg)
+            (println "ISSUE: " msg))
           (print-throwable e)
           (println "\nSTACKTRACE:")
           (print-stack-trace e)
@@ -109,7 +111,7 @@
 
 
 (defn report-rethrow 
-  "Report the message and the exception and throw the rethrow the exception."
+  "Report the message and the exception and rethrow the exception."
   [msg e]
   (report msg e)
   (throw e))

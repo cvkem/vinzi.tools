@@ -14,7 +14,8 @@
 
 (defn split-recs 
   "Transform a xrelation (set or sequential) by turning all 'kKeys' into a new record 
-  and storing all other data in a separate map under the 'otherKeys'."
+  and storing all other data in a separate map under the 'otherKeys'.
+  Used to prepare relations for a set/join"
   [recs kKeys otherKey]
   {:pre [(or (set? recs) (sequential? recs)) (sequential? kKeys) (keyword? otherKey)]}
   (let [split-rec-aux (fn [rec]

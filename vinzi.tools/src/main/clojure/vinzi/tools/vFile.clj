@@ -9,9 +9,9 @@
              [shell :as sh]]
             [vinzi.tools [vExcept :as vExcept]]))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;   taken from vinzi.tools.fileTools
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def runningWindows (= java.io.File/separator "\\"))
 (def FileSep (if runningWindows
@@ -248,7 +248,7 @@
    TODO: as cleaner encoding would be to use (.mkdirs (java.io.File. x))" 
   [fName]
   {:pre [(string? fName)]}
-  (debug "(ensure-dir-exists): for file " fName)
+;;  (debug "(ensure-dir-exists): for file " fName)
   (let [isDir? (= (last (str/trim (str fName))) (first FileSep))
         f  (io/file fName)]
   (if (.isDirectory f)
