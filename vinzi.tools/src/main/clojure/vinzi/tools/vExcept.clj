@@ -70,7 +70,7 @@
       (if ClojureTrace
         (do  
           (when (seq msg)
-            (println "ISSUE: " msg))
+            (println "DETAILS: " msg))
           (print-throwable e)
           (println "\nSTACKTRACE:")
           (print-stack-trace e)

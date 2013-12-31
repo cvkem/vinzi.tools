@@ -10,9 +10,36 @@
 (defn get-log-reader-aux 
   "Return a reader that maintains a log of read strings."
   [rdr]
-  (let [read-log (atom [])
+  (let [MaxChars 160
+        read-log (atom {:lineSeg []
+                        :lineNr  1
+                        :lastRead ""})
+        collect-lines (fn [{:keys [lineSeg lineNr lastRead] :as read-log}]
+                       ;; collect seq of string-pieces to a line
+                       ;; update the current line-nr of the last line
+                       ;; and truncate the seq at maxChar characters
+                       (let [lineSeg (apply str lineSeg)
+                             newlines (count (re-seq #"\n" lineSeg))
+                             cls (count lineSeg)
+                             lastRead (if (>= cls MaxChars)
+                                        (subs lineSeg (- cls MaxChars))
+                                        (let [lrChars (- MaxChars cls)
+                                              clr (count lastRead)]
+                                          (str (if (>= clr lrChars)
+                                                 (subs lastRead (- clr lrChars))
+                                                 lastRead)
+                                                lineSeg)))]
+                         {:lineSeg []
+                          :lineNr (+ lineNr newlines)
+                          :lastRead lastRead}
+                       ))
         append-line (fn [line]
-                      (swap! read-log conj line)) 
+                      (swap! read-log (fn [rl]
+                                        (if (> (count (:lineSeg rl)) 20)
+                                          (collect-lines rl)
+                                          (assoc rl :lineSeg (conj (:lineSeg rl) line)))))) 
+        get-lastRead #(-> (swap! read-log collect-lines)
+                          (dissoc :lineSeg))
         logReader (proxy [java.io.Reader] []
                      (close [] ;;(println "Close")
                                (.close rdr))
@@ -50,13 +77,16 @@
         report-error-status (fn [] 
                               ;; reports status (what is read, and what is not
                               ;; and forwards orig-reader (without mark/reset)
-                              (let [maxChars 160
-                                         ca (char-array maxChars)
-                                         ret (.read rdr ca) 
-                                         ca (apply str ca) ]
-                                     (str "vEdn/log-reader READ: " 
-                                          (apply str  @read-log)
-                                        "\nNEXT CHARS (max. " maxChars ") : " ca)))
+                              (let [ca (char-array MaxChars)
+                                    ret (.read rdr ca) 
+                                    tail (if (>= ret 0) "..." "")
+                                    ca (apply str ca) 
+                                    {:keys [lastRead lineNr]} (get-lastRead)
+                                    head (if (< (count lastRead) MaxChars) ": " ": ...")]
+                                     (str "vEdn/log-reader Error when reading line "
+                                          lineNr head 
+                                          lastRead
+                                        "\nNEXT CHARS (max. " MaxChars "): " ca tail)))
         ]
     {:orig-reader rdr
      :reader logReader
