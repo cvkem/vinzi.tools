@@ -2,6 +2,7 @@
   (:use clojure.test)
   (:require
     [clojure.string :as str]
+    [clojure.java.io :as io]
     [vinzi.tools.vFile :as vFile]))
 
 
@@ -150,5 +151,31 @@
          "./dir/test"    (str currDir vFile/FileSep "dir")
          "./dir/test/"    (str currDir vFile/FileSep "dir"))
         ))
+
+
+(deftest test-filepath-parts
+  (are [f split] (= (vFile/filepath-parts f) split)
+       "2012" '("2012")
+       "data/2012" '("data" "2012")
+       (io/file "data/2012")  '("data" "2012")
+       "/data/2012" '("" "data" "2012")
+       (io/file "/data/2012")  '("" "data" "2012")
+       (io/file "data/2012")  '("data" "2012")
+       ;; ~ currently is not expanded 
+       ))
+
+
+(deftest test-change-file-base
+  (are [targ skipNum srcNme res] (= (vFile/change-file-base srcNme skipNum targ) res)
+       ;; skipping 0 returns an absolute path
+       "/TST" 0 "/d1/d2/file" "/d1/d2/file"
+       "/TST" 0 "d1/d2/file" "/TST/d1/d2/file"
+       "/TST/" 0 "d1/d2/file" "/TST/d1/d2/file"
+       "/TST" 1 "/d1/d2/file" "/TST/d1/d2/file"
+       "/TST/" 1 "/d1/d2/file" "/TST/d1/d2/file"
+       "TST" 1 "/d1/d2/file" "TST/d1/d2/file"
+       "/TST/" 2 "/d1/d2/file" "/TST/d2/file"
+       "TST" 2 "/d1/d2/file" "TST/d2/file"
+       ))
 
 

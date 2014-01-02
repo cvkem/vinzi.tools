@@ -33,6 +33,6 @@
 
 (deftest split-rec-test
   (are [rec ks ok res] (= (vRel/split-recs rec ks ok ))
-       (first joinA) [:k] :jk  {:jk {:x \a}, :k 1}
+       (list (first joinA)) [:k] :jk  {:jk {:x \a}, :k 1}
        joinA [:k] :jk    '({:jk {:x \a}, :k 1} {:jk {:x "AA"}, :k 1} {:jk {:x \b}, :k 2}))
      )
