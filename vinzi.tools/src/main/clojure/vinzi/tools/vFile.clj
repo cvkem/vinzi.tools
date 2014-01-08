@@ -155,6 +155,32 @@
                    (apply str (drop 2 (seq path)))
                    path))))
 
+(defn get-relative-path 
+  "Get a relative path. Path will be relative to current folder,
+   or path will be relative to second argument if two arguments are
+   provided.
+   If current folder is not part of (base) path the extended/full 
+  path is returned."
+  ([full]
+    (get-relative-path (get-current-dir) full))
+  ([base full]
+    (let [lpf "(get-relative-path): "
+          base (filename base)] ;; perform expansions
+      (if (absolute-path? base)
+        (let [full (filename full)
+              ;; cleans base. No terminating . and FileSep at end.
+              base (if (= (last base) \.) 
+                     (subs base 0 (dec (count base)))
+                     (if (= (last base) (first FileSep))
+                       base (str base FileSep)))]
+          (if (.startsWith full base)
+            (subs full (count base))
+            full))
+        (vExcept/throw-except lpf "When using two arguments, "
+                              " first argument should be absolute path."
+                              " Received: " base)))))
+
+
 (defn get-path-dir 
   "Return the containing directory/folder of path. If path ends in directory then the parent directory will be returned. "
   [path]
@@ -165,7 +191,7 @@
       ((partial str/join FileSep)))))
 
 (defn get-filename 
-  "Get the filename of a path (or a File object). "
+  "Get the filename (without path) of a path or a File object. "
   [path]
     (if (= (type path) java.io.File)
       (.getName path)
@@ -337,7 +363,6 @@ The 'actOnDir' flag tells whether the action should be applied to a directory be
   ;;  except for the fact that it first operates on the top node.
   ;;(def r1 (with-out-str (walk-fs "." #(when (.isDirectory %) (println( .getCanonicalFile %))) 1)))
   ;; Use the reverse of the line-seq to get directories last
-
   ([fName action] (walk-fs fName action 0))
   ([fName action actOnDir]
   (letfn [(walk-dir [d]

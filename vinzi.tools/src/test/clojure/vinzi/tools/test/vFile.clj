@@ -178,4 +178,21 @@
        "TST" 2 "/d1/d2/file" "TST/d2/file"
        ))
 
+(deftest get-relative-path
+  (are [base path res] (= (vFile/get-relative-path base path) res)
+       "/tmp/"  "/tmp/ble" "ble"
+       "/tmp"  "/tmp/ble" "ble"
+       "/tmp/"  "/tmp/ble/blap" "ble/blap"
+       "/tmp"  "/tmp/ble/blap" "ble/blap"
+       "/tmp/"  "/tmp/ble" "ble"
+       ;; Next test should check agains $HOME
+ ;;      "/home/cees" "~/ble" "ble"
+       )
+  (let [currDir (vFile/get-current-dir)
+        currDir (if (= (last currDir) \.)
+                  (apply str (drop-last currDir))
+                  currDir)]
+    (are [path res] (= (vFile/get-relative-path path) res)
+       (vFile/filename currDir "ble")  "ble"))
+  )
 
