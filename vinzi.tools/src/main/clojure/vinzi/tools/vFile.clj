@@ -89,11 +89,14 @@
    contrary to (io/file parent child) this function generates strings instead of file-objects
   and it accepts children that start with a '/' (see above).
   The '~' is expanded to an absolute path, while './' is left as is.
+  Does not expand relative path './file'  to full paths. Use (extend-path path true) for that task.
   (Furthermore this function has additional logging and error-reporting that is not in (io/file).
    TODO: should strip-dquotes be performed by default? (see previous function)"
   ([fName] (filename nil fName))
   ([base fName]
     (let [lpf "(filename): "
+          ;; using (.getPath instead to get a relative path,otherwise links will be rewritten)
+          fName (if (= (type fName) java.io.File) (.getPath fName) fName)
           orgfName fName
           unify-separator #(if runningWindows
                              (str/replace % #"/" "\\\\")  ;; on windows remove "/" from paths (many java-utils generate canonical paths)
@@ -102,6 +105,11 @@
                      (if (home-path? fName)
                        (filename Home  (str/replace fName (re-pattern (str "^\\s*~" FileSep)) ""))
                        fName))
+         trailDot (str FileSep ".")
+              ;; cleans base. No terminating . and FileSep at end.
+         base (if (and base (.endsWith base trailDot))
+                (subs base 0 (dec (count base)))
+                base)
           base (-> base (str ) 
                  (unify-separator ))
           base (if (#{"~" (str "~" FileSep)} (str/trim base))
@@ -114,7 +122,7 @@
       (if (= 0 (count (str/trim base)))
         (do
           (when (= orgfName fName)
-            (warn lpf "Base directory is empty and file-name did not needed changes. return unmodified: " fName))
+            (warn lpf "Base directory is empty and file-name did not need changes. return unmodified: " fName))
           fName)
         (if (full-path? fName)
           fName
@@ -143,6 +151,7 @@
   []
   (.getAbsolutePath (java.io.File. ".")))  ;; .getCanonical might fail on windows (canonical uses '/')
 
+
 (defn extend-path "Extend a 'path' by prefixing the current directory to relative paths.
    If the optional 'force' parameter is true than path starting with './' will be expanded too." 
   ([path]
@@ -155,30 +164,34 @@
                    (apply str (drop 2 (seq path)))
                    path))))
 
+
 (defn get-relative-path 
   "Get a relative path. Path will be relative to current folder,
    or path will be relative to second argument if two arguments are
-   provided.
-   If current folder is not part of (base) path the extended/full 
-  path is returned."
+   provided. If current folder is not part of (base) path the extended/full path is returned.
+   The result does NOT have a leading './', and if it exists already it is removed."
   ([full]
     (get-relative-path (get-current-dir) full))
   ([base full]
     (let [lpf "(get-relative-path): "
           base (filename base)] ;; perform expansions
-      (if (absolute-path? base)
-        (let [full (filename full)
-              ;; cleans base. No terminating . and FileSep at end.
-              base (if (= (last base) \.) 
+;          base (if (.endWith base (str FileSep ".")) (apply str (drop-last base)) base)]  ;; drop traling dot
+      (if (.startsWith full (str "." FileSep))
+        (apply str (drop 2 full))  ;; path is relative, already, but drop the './' prefix
+        (if (absolute-path? base)
+          (let [full (filename full)
+                trailDot (str FileSep ".")
+                ;; cleans base. No terminating . and FileSep at end.
+                base (if (.endsWith base trailDot) 
                      (subs base 0 (dec (count base)))
                      (if (= (last base) (first FileSep))
                        base (str base FileSep)))]
-          (if (.startsWith full base)
-            (subs full (count base))
-            full))
-        (vExcept/throw-except lpf "When using two arguments, "
-                              " first argument should be absolute path."
-                              " Received: " base)))))
+            (if (.startsWith full base)
+              (subs full (count base))
+              full))
+          (vExcept/throw-except lpf "When using two arguments, "
+                                " first argument should be absolute path."
+                                " Received: " base))))))
 
 
 (defn get-path-dir 

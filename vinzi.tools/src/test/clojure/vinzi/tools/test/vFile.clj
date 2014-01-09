@@ -192,6 +192,11 @@
         currDir (if (= (last currDir) \.)
                   (apply str (drop-last currDir))
                   currDir)]
+  (are [base path res] (= (vFile/get-relative-path base path) res)
+        currDir  (vFile/filename currDir "ble") "ble"
+        currDir  (vFile/filename "." "ble") "ble"
+        currDir  (str "." vFile/FileSep "ble") "ble"
+       )
     (are [path res] (= (vFile/get-relative-path path) res)
        (vFile/filename currDir "ble")  "ble"))
   )
