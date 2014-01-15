@@ -7,11 +7,13 @@
 
 (def logTrace (atom []))
 
-;; for each identical msg at most 'maxTraces will be generated
-(def maxTraces 3)
+;; for each identical msg at most 'InitialTraces will be generated
+;; subsequently the trace is only emitted for occurenc-counts that are a power of 2
+;; This way the output is limited.
+(def InitialTraces 3)
 
-;; when the logTrace exceeds 2*logTraceDepth levels it will be pruned to logTraceDepth
-(def logTraceDepth 100)
+;; when the logTrace exceeds 2*LogTraceDepth levels it will be pruned to LogTraceDepth
+(def LogTraceDepth 100)
 
 (def trackTraceCount (atom {}))
 
@@ -63,8 +65,8 @@
   [trace]
   (swap! vinzi.tools.vLogging/logTrace 
                    (fn [lt] 
-                     (let [lt (if (>= (count lt) (* 2 logTraceDepth))
-                                (vec (drop logTraceDepth lt))  lt)]
+                     (let [lt (if (>= (count lt) (* 2 LogTraceDepth))
+                                (vec (drop LogTraceDepth lt))  lt)]
                        (conj lt trace))))
   nil) ;; no direct access to queue needed
 
@@ -111,7 +113,11 @@
   "Extract a numbered logTrace prefixed by a message.
    All lines are prefixed by a number and a token D(debug) or T(race) 
   to indicate the log-level.
-  The function clears the current log-trace and returns the full message."
+  The function clears the current log-trace and returns the full message for the
+  first 'InitialTrace' traces contain the same msg-keyword, subsequently
+  the log-trace is only emitted for occurence-counts that are a power of 2.
+  The msg-keyword is the part of 'msg' up to the first occurence of string '#-'
+  (so different message can have the same keyword to limit output)."
   [msg level]
   (let [ltHeader (str "<![START LOGTRACE[ " (str/upper-case (name level)) ": ")
         ;; get the current log-trace (or its tail)
@@ -123,10 +129,14 @@
                (drop (- (count lt) maxTraceItems) lt)
                lt))
         ltFooter "\n]END LOGTRACE]>"
+;        get-msg-keyword (fn []
+;         ;; get the keyword by removing #123 infixes and suffixes from the message.
+;         ;;  (Used to make unique messages that map to the same trackTraceCount key.
+;         ;; to prevent repetitive reporting
+;                         ;  (keyword (str/replace msg #"\s*#\d+\s*" "")))
         get-msg-keyword (fn []
-         ;; get the keyword by removing #123 infixes and suffixes from the message.
-         ;;  (Used to make unique messages that map to the same trackTraceCount key.
-                          (keyword (str/replace msg #"\s*#\d+\s*" "")))
+                          ;; the message
+                          (keyword (first (str/split msg #"#-"))))
         update-cnt (fn []
          ;; Increase the count for current key and return the current occurance-count.
                     (let [msgKey (get-msg-keyword)]
@@ -135,14 +145,18 @@
         line-string (fn [lineItems lineNo]
 (println "TMP: ADDING ITEM: " (first lineItems))
                      (str lineNo " "(first lineItems) ": "
-                          (str/join " " (map unwrap-item (rest lineItems)))))]
+                          (str/join " " (map unwrap-item (rest lineItems)))))
+        isPow2? (fn [n] (= (loop [n n] (if (and (> n 0) (even? n)) (recur (bit-shift-right n 1)) n)) 1)) 
+        ]
     (clear-logTrace)
-    (when (<= (update-cnt) maxTraces)
-      ;; TODO: should it be better to print the trace one level higher at warn-level 
-      ;; (or should we prune logging via the log4j.xml/logback file"))
-      (let [fullMsg (str ltHeader msg "\n" (str/join "\n" 
-                        (map line-string lt (rest (range)))) ltFooter)]
-        fullMsg))))
+    (let [ucnt (update-cnt)]
+      (when (or (<= ucnt InitialTraces) (isPow2? ucnt))
+        ;; TODO: should it be better to print the trace one level higher at warn-level 
+        ;; (or should we prune logging via the log4j.xml/logback file"))
+        ;; TODO: check wether the line-string is really omitted when logtrail is not used.
+        (let [fullMsg (str ltHeader "#" ucnt " " msg "\n" (str/join "\n" 
+                          (map line-string lt (rest (range)))) ltFooter)]
+          fullMsg)))))
 
 (defmacro print-logTrace
   "Print a numbered logTrace prefixed by a message.
@@ -150,7 +164,8 @@
    to indicate the log-level.
   (using macro such that the warn/error point to the correct file)."
   [msg level]
-  `(let [fullMsg# (get-logTrace-func ~msg ~level)]
+  `(when-let [fullMsg# (get-logTrace-func ~msg ~level)]
+     ;; if fullMsg is nil, the trace thould be discarded (not reported)
         (if (= ~level :warn)
           (ctl/warn fullMsg#)
           (ctl/error fullMsg#))))

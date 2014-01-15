@@ -233,7 +233,7 @@
 ;;    (edn/read stream)))
  (logged-read edn/read (get-log-file-reader f)))
 
-(def ^:dynamic debugging true)
+(def ^:dynamic debugging false)
 
  
 (defn read-edn-lazy-file 
@@ -254,7 +254,6 @@
                               (def ^:dynamic last-edn-line form)
                               (println "Next edn-string: " form))
                             (let [form (edn/read-string form)]
-                              
                               form)
                             (catch Throwable t 
                               (let [msg (str "during (edn/read-str \"" form "\") " (.getMessage t))]

@@ -5,6 +5,8 @@
  [no-artifact]
  :dependencies
  [[org.clojure/clojure "1.5.1"]
+    ;;  temporary add it. Should only be called on the repl
+  [com.ambrosebs/dynalint "0.1.1"]
   [org.clojure/java.jdbc "0.2.3"]
   [org.clojure/tools.logging "0.2.6"]
   [org.slf4j/slf4j-api "1.6.5"]
