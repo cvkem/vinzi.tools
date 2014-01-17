@@ -192,6 +192,7 @@ NOTE: log-trackers also sets and unsets the edn-file."
           file (-> fName
                  (File.))
           sleepMs 100
+          sleepMs_get-counts-log 300  ;;  otherwise errors might reside in file-caches0
           {:keys [warnMinutes warnMessage killMinutes killMessage]} warnKill
           warnIter (when warnMinutes (long (* (/ 60000 sleepMs) warnMinutes)))
           killIter (when killMinutes (long (* (/ 60000 sleepMs) killMinutes)))
@@ -305,6 +306,12 @@ NOTE: log-trackers also sets and unsets the edn-file."
                           (println "Log-tracker READY"))
                         )
                   (get-counts []
+                             
+                              ;;  sleep  for a while to give logging system and OS some
+                              ;;  a little time to update the log-ile (get-counts-log is often called
+                              ;;   when the program is terminated with an ERROR.
+                              ;;  (Check whether it should be possible to turn additional waiting off)
+                              (Thread/sleep sleepMs_get-counts-log) 
                               (loop [iter 0]
                                 (when (and (< iter 5)  ;; wait at most 10 times. 
                                            (not @stopThread)
