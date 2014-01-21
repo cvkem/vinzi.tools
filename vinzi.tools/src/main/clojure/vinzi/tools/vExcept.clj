@@ -57,6 +57,18 @@
            (throw except#)))))
 
 
+(defn sql-except-str-extension
+  "Show an extension of the stack-trace for SQLExceptions."
+  [e]
+  (when (isa? (class e) java.sql.SQLException)
+    (str "\tSQL-related Exception details:"
+         "\n\tErrorCode: " (.getErrorCode e)
+         "\n\tSQLState:  " (.getSQLState e)
+      (when-let [n (.getNextException e)]
+          (str "\nNext-message: " (.getMessage n)
+               (when (isa? (class e) java.sql.SQLException)
+                   "\n\tNext-errorcode: " (.getErrorCode n)))))))
+
 ;; the Clojure trace tracks down all causes (not just the root-cause)
 (def ClojureTrace true)
 (def CauseDepth 10)
@@ -85,7 +97,9 @@
           (println "Message: " (.getMessage e))))
 
       ;; additional reporting on sql-exceptions
-      (when (isa? (class e) java.sql.SQLException)
+      (println (sql-except-str-extension e))
+      ;;  OLD CODE (replaced by line above.
+      #_(when (isa? (class e) java.sql.SQLException)
         (println "\tSQL-related Exception details:"
                  "\n\tErrorCode: " (.getErrorCode e)
                  "\n\tSQLState:  " (.getSQLState e))
