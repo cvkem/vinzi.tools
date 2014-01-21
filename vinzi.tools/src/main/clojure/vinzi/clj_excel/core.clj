@@ -21,6 +21,14 @@
 
 ;; Utility Constant Look Up ()
 
+(def Debug false)
+
+(defn printlnD 
+  "Tool for debugging. "
+  [& args]
+  (when Debug  (apply println args))
+  nil)
+
 (defn constantize
   "Helper to read constants from constant like keywords within a class.  Reflection powered."
   [klass kw]
@@ -179,7 +187,33 @@
 (defn lazy-workbook
   "Lazy workbook report."
   [wb]
-  (zipmap (map #(.getSheetName %1) wb) (map lazy-sheet (sheets wb))))
+  (let [wb (if (map? wb) (:poiWb wb) wb)
+        numSheets (.getNumberOfSheets wb)]
+  (zipmap (map #(.getSheetName wb %) (range numSheets)) (map lazy-sheet (sheets wb)))))
+
+
+(defn get-lazy-sheet
+  "Get a lazy sheet which excludes all empty rows. 
+   Empty cells are patched with nils, to ensure columns stay aligned."
+  [{:keys [poiWb]} shIndex]
+  (let [sheet (.getSheetAt poiWb shIndex)
+        rows (seq sheet)
+        unpack-row (fn [row]
+                     (let [cells (seq row)
+                           values (map cell-value cells)
+                           ;; the iterator does not show empty ceels, so we have
+                           ;; to padd nils to keep columns aligned
+                           idx    (map #(.getColumnIndex %) cells)
+                           nils   (map #(dec (- %1 %2)) idx (cons -1 idx))
+                           cells (map #(concat (repeat %1 nil) (list %2)) nils values)]
+                       (apply concat cells)))]
+   (map unpack-row rows))) 
+
+(defn get-sheet-vecs
+  [wb shIndex]
+  (let [ls (get-lazy-sheet wb shIndex)]
+    (vec (map vec ls))))
+
 
 (defn get-cell
   "Get cell within row"
@@ -248,7 +282,7 @@
                          (let [cell-spec (fn 
                                            ;;"Get a cell definition consisting of a value and a format to be applied. Format might be nill"
                                            [value]
-                                           (println "value " value " has type " (type value))
+                                           (printlnD "value " value " has type " (type value))
                                            (let [tp (type value)]
                                              (cond 
                                                (= tp java.lang.String) [value Cell/CELL_TYPE_STRING (:textFormat formats)]
@@ -265,7 +299,7 @@
                            (try
                              (when value
                                (let [[value tpe fmt] (cell-spec value)]
-                                 (println "set cell to value: " value " and format " fmt)
+                                 (printlnD "set cell to value: " value " and format " fmt)
                                  (.setCellValue cell value)
                                  (when tpe 
                                    (.setCellType cell tpe))
@@ -279,7 +313,7 @@
           set-create-cell (fn [row col value] 
                             (set-cell-aux (or (get-cell row col) (.createCell row col)) value))
           set-create-cell-row (fn [sheet row col value]
-                                (println "enter (set-cell/set-create-cell-row " sheet " " row " " col " " value ") while (.getRow sheet row) returns: " (.getRow sheet row))
+                                (printlnD "enter (set-cell/set-create-cell-row " sheet " " row " " col " " value ") while (.getRow sheet row) returns: " (.getRow sheet row))
                                 (set-create-cell (or (.getRow sheet row) (.createRow sheet row)) col value))
           ]
     (set-create-cell-row currSht row col value)))

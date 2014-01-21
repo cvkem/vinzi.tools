@@ -73,7 +73,8 @@
           _ (debug lpf "with headers: " (str/join ", " header))
           data   (next csv)
           to-map (fn [row]
-                   (zipmap header (map str/trim row)))
+                   ;; first the argument to a string
+                   (zipmap header (map #(str/trim (str %))row)))
           ;; clojure.java.jdbc uses zipmaps to (see resultset-seq  in file jcdb.clj)
           ;; 2650 ms  so 2,6 ms per row, same timing here
           ]
@@ -136,6 +137,7 @@
    keyword (default is using strings).
    A columnMap consist of key-value pairs where the key is the column-name in the csv-file and the value is the name in the target-map.
    (both keywords and strings are allowed) set keepAllColumns to false to limit the number of colums.
+  The result is a clean rectangular matrix (list of vectors). Apply csv-to-map to get a sequence of hash-maps.
   "
   ([data columnMap] (csv-columnMap data columnMap true false))
 ;;  option with three parameters NOT included to prevent errors on ordering of the boolean flags.
@@ -342,15 +344,29 @@
 
 (defn map-seq-to-csv 
   "Map a sequence of maps to a format that can be output to a csv (first row contains column-names, subsequent rows the data).
-   If a second parameter is provided it will be uses as the sequence of keys to be included."
+   If a second parameter is provided it will be uses as the sequence of keys to be included.
+  Koloms are ordered lexicographical."
   ([data]
-    (map-seq-to-csv data (keys (first data))))
-  ([data k]
-  (let [;; prepare ordered keys (but retain type (keyword, string)
-        k (->> k
-            (map #(vector (if (keyword %) (name %) %) %))
-            (sort-by first)
-            (map second))
+    (map-seq-to-csv data nil))
+  ([data k & opts]
+  (let [_ (println " received opt-seq: " opts "  of type "  (type opts))
+        opts (apply hash-map opts)
+        _ (println " passed options are: " opts)
+        opts (into  {:sortHeader true} opts)
+        _ (println " options with defaults are: " opts)
+        ;; when not provided take the keys of the first records
+        k (if k k (keys (first data)))
+        ;; prepare ordered keys (but retain type (keyword, string)
+        ;; j
+         _ (println "k: "  k)       
+        k (if (:sortHeader opts)
+            (->> k
+              (map #(vector (if (keyword %) (name %) %) %))
+              (sort-by first)
+              (map second))
+            k)
+        _ (println "opts are: " opts)
+        _ (println "key-seq: "  k)
         vecData (map #(vec (map % k)) data)
         ks (vec (map name k))]
     (cons ks vecData))))
