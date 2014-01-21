@@ -963,6 +963,36 @@
     (fn [rec]
       (map rec lbls))))
 
+
+(defn chunked-write-data 
+  "A chunked write that writes data via a binary partition-process, used to write a dataset contains key-violations.
+   By using a binary division strategie it tries to write the data in a limited number of batches
+   and reports each of the rows that violate the constraint.
+   (When insertion-time makes records unique, it might even be able to resolve a key-violation as 
+   different batches get a different inser-time.)"
+  [data schema tbl]
+  (let [lpf "(chuncked-write-data): " 
+        qTbl (qsp schema tbl)
+        write-data (fn [data]
+                     (when (> (count data) 0)
+                       (try
+                         (apply sql/insert-records qTbl data)
+                         (catch Exception ex
+                           (if (= (count data) 1)
+                             (error lpf "Failed to write row: " (first data) " to table " qTbl)
+                             (chunked-write-data data schema tbl))))))
+        cntHead (/ (count data) 2)
+        head    (take cntHead data)
+        tail    (drop cntHead data)]
+    (write-data head)
+    (write-data tail)))
+
+(defn chunked-write-select
+  "Write output of the 'SelectSql' to table in chunks."
+  [selectSql schema tbl]
+  (sql/with-query-results data [selectSql]
+    (chunked-write-data data schema tbl)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  An SQL sort-order DIFFERS from the java-compare sort order on special characters/
 ;;  The function below creates a tables with 200 one-character strings and shows the
