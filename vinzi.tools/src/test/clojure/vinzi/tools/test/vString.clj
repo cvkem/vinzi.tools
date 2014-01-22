@@ -6,6 +6,29 @@
      [vDateTime :as vDate]
      [vString :as vString]]))
 
+
+(deftest test-subs-limit
+  (are [start limit res] (= (vString/subs-limit "0123" start limit) res)
+      0 10 "0123"
+      0 2  "01"
+      1 2  "12"
+      3 10 "3"
+      4 10 ""
+      5 10 nil)) 
+
+(deftest test-string-difference 
+  (are [orig mod res] (= (vString/string-difference orig mod) res)
+     "abc"  "abc"  nil
+       ""   ""     nil
+     "abc"  "abcX"  {:orig "abc" :modified "abcX" :position 3 :orig-subs "" :mod-subs "X"} 
+     "abc"  "abXc"  {:orig "abc" :modified "abXc" :position 2 :orig-subs "c" :mod-subs "Xc"} 
+       ;; and the reverse
+     "abcX"  "abc"  {:orig "abcX" :modified "abc" :position 3 :orig-subs "X" :mod-subs ""} 
+     "abXc"  "abc"  {:orig "abXc" :modified "abc" :position 2 :orig-subs "Xc" :mod-subs "c"}
+     ;; issue at start
+     "Xabc"  "abc"  {:orig "Xabc" :modified "abc" :position 0 :orig-subs "Xabc" :mod-subs "abc"} 
+      )) 
+
 (deftest test-replace-params
     ;; first test parameter-substitution standalone
     (let [code "line ${a}\n"

@@ -19,6 +19,42 @@
 
 
 
+(defn subs-limit 
+  "Return a substring of at most 'limit' characters starting from 'start'. 
+   Return nil when start is beyond end of string (and empty string when exactly at end of string)."
+  [s start limit]
+  (let [end (+ start limit)
+        len (count s)
+        end (if (< end len) end len)]
+    (cond
+      (< start len) (subs s start end)
+      (= start len) "")))
+
+
+
+
+(defn string-difference
+  " Report the diffence between strings via a hash-map containing keys.
+     :orig :modified :position :orig-subs :mod-subs Where orig-subs and
+    mod-subs contain a sting of a most 50 characters starting a the position of the difference.
+    Returns nil when no diffences are detected.."
+  [orig modified]
+  (let [posDif (->> (map #(when (not= %1 %2) %3) orig modified (range))
+                     (remove nil? )
+                     (first ))]
+    (when (or posDif (not= (count orig) (count modified)))
+     (let [posDif     (if posDif posDif (min (count orig) (count modified)))
+           orig-subs  (subs-limit orig posDif 50)
+           mod-subs   (subs-limit modified posDif 50)]
+       {:orig orig
+        :modified modified
+        :position posDif
+        :orig-subs orig-subs
+        :mod-subs  mod-subs})))
+  )
+
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  functions for handeling string-parameters
 ;;    1. Replace parameters of shape ${  } in a string
