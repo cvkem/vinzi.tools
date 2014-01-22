@@ -55,7 +55,12 @@
            fl (fn [x] (case (str (class x))
                         "class clojure.reflect.Method"  (str "\tFlags: " (:flags x))
                         "class clojure.reflect.Field"   (str "\tFlags: " (:flags x))
-                        "class clojure.reflect.Constructor" ""))]
+                        "class clojure.reflect.Constructor" ""))
+           members (->> (refl/reflect x)
+                       (:members)
+                       (map #(assoc %2 :ordinal_pos %1) (next (range)) ) 
+                       (sort-by :name))
+           ]
      (println "Object of type: " (type x)  " has members: ")
-     (print (str/join "\n" (map #(str (pt %) "\t " (:name %) (pa %) (fl %)) (:members (refl/reflect x)))))))
+     (print (str/join "\n" (map #(str (:ordinal_pos %)": " (pt %) "\t " (:name %) (pa %) (fl %)) members)))))
 
