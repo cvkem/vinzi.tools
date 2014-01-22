@@ -4,11 +4,38 @@
 	   [clojure.tools [logging :only [error info trace debug warn]]])
   (:require [clojure.edn :as edn]
             [clojure.java [io :as io]]
-            [vinzi.tools.vExcept :as vExcept]))
+            [vinzi.tools
+             [vExcept :as vExcept]
+             [vString :as vStr]]))
+
+(defn checked-edn
+  "Transform a value to edn and read is back via de edn-reader to check whether the edn is
+   valid. When not valid show where the difference is located in the edn (string-value)."
+  [value]
+  (let [lpf "(checked-edn): "]
+    (try
+      (let [edn (pr-str value)
+            readEdn (clojure.edn/read-string edn)]
+        (if (= readEdn value)
+          edn
+          (let [diff (vStr/string-difference edn (pr-str readEdn))]
+            ;; TODO: is this code reachable, or do we always get an exception?
+             (error lpf "Read back edn differs from original value at position " 
+                    (:position diff) " substrings:"
+                    "\n\torig:     " (prn-str (:orig-subs diff))
+                    "\n\tmodified: " (prn-str (:mod-subs diff))))))
+      (catch Exception ex
+        ;; TODO: should we report differences more detailed (depending on kind of exception?
+        ;; should we parse string for #-markers, as these are likelijk offending code (requires filtering)
+        (error lpf "value could not be transformed to readible edn. Does it contain functions or objects?"
+               "\nEDN: "(pr-str value))))))
+
 
 
 (defn get-log-reader-aux 
-  "Return a reader that maintains a log of read strings."
+  "Return a reader that maintains a log of read strings. 
+   This log-reader can be queried via (report-error-status)
+   to get more detailled error-messages."
   [rdr]
   (let [MaxChars 160
         read-log (atom {:lineSeg []
@@ -92,12 +119,14 @@
      :reader logReader
      :report-error-status report-error-status}))
 
+
 (defn get-log-str-reader 
   "Turn the content into a string-reader and package as a log-reader."
   [content]
   {:pre [(string? content)]}
   (let [rdr (java.io.StringReader. content)]
     (get-log-reader-aux rdr)))
+
 
 (defn get-log-file-reader 
   "Turn the content into file-reader and package as a log-reader.
@@ -264,7 +293,10 @@
 
 
 (defn write-edn-file
+  "Write data to an EDN file"
   [fName data]
+  ;; TODO: make use of the checked-edn convertor possible via an option.
+  ;;  check that we do not get duplicated quoting
   (with-open [out (java.io.FileWriter. fName)]
     (binding [*out*  out]
       (prn data))))
@@ -274,6 +306,8 @@
   "Append to file by opening opening file in append mode. When a high volume needs to be written
    it is better to use an open stream."
     [fName data]
+  ;; TODO: make use of the checked-edn convertor possible via an option.
+  ;;  check that we do not get duplicated quoting
   (with-open [out (io/writer fName :append true)]
     (binding [*out*  out]
       (prn data))))
