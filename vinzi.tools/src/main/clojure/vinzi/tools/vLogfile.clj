@@ -64,10 +64,21 @@
   (println (re-find #"^(.+)\$(.+)__\d+$" class-name))
   (str/replace class-name #"^(.+)\$(.+)(__\d*){0,1}$" "$1/$2"))
 
+(defn unmangle-function-from-throwable 
+  "Get name of function at level n from the java-throwable (default is top-level n=0)"
+  ([th]
+   (unmangle-function-from-throwable th 0))
+  ([th n]
+    (let [trace (vec (.getStackTrace th))
+          entry (get trace n)]
+      (when entry 
+        (-> entry .getClassName unmangle)))))
 
 (defmacro current-function-name []
   "Returns a string, the name of the current Clojure function"
-  `(-> (Throwable.) .getStackTrace first .getClassName unmangle))
+  `(let [th# (Throwable.) ]
+     (str (unmangle-function-from-throwable th#)
+         " (followed by: " (unmangle-function-from-throwable th# 1) ")")))
 
 (defn stringify-funcs 
   "Recursively stringify all functions in the provided data for output to an edn.
@@ -123,7 +134,7 @@
          :entity  Optional argument representing the data-object (first of args if args has multiple arguments)
          :data    data element is third parameter if it exists, otherwise second parameter."
   [process & args]
-  `(let [cfn# ~(current-function-name)]
+  `(let [cfn# (current-function-name)]
          (progress-entry-func cfn# ~process ~@args)))
 
 
@@ -136,7 +147,8 @@
                     :filename (derive-edn logFileName)}]
       (debug "set-progress-edn: " ednDescr)
       (swap! progressEdnFile (fn [_] ednDescr))
-      (progress-entry :set-progress-edn (assoc ednDescr :get-line-count (str "Function: "(:get-line-count ednDescr)))))  ;; change function to string
+      (progress-entry :set-progress-edn (assoc ednDescr :get-line-count 
+                                               (str "Start counts: " ((:get-line-count ednDescr))))))  ;; change function to string
     (vExcept/throw-except "The progressEdnFile is already set to: " @progressEdnFile)))
 
 

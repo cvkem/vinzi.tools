@@ -79,34 +79,29 @@
   [msg e]
   (if e
     (with-out-str
-      (if ClojureTrace
-        (do  
-          (when (seq msg)
-            (println "DETAILS: " msg))
-          (print-throwable e)
-          (println "\nSTACKTRACE:")
-          (print-stack-trace e)
-          (println "CAUSE-TRACE with depth " CauseDepth ":")
-          (print-cause-trace e CauseDepth))
-        (do 
-          (println msg 
-                 "\nException of type: " (class e))
-          (if-let [rootCause (root-cause e)]
-            (print-stack-trace rootCause)
-            (println "No root-cause given"))
-          (println "Message: " (.getMessage e))))
-
-      ;; additional reporting on sql-exceptions
-      (println (sql-except-str-extension e))
-      ;;  OLD CODE (replaced by line above.
-      #_(when (isa? (class e) java.sql.SQLException)
-        (println "\tSQL-related Exception details:"
-                 "\n\tErrorCode: " (.getErrorCode e)
-                 "\n\tSQLState:  " (.getSQLState e))
-        (when-let [n (.getNextException e)]
-          (println "\nNext-message: " (.getMessage n)
-                   "\n\tNext-errorcode: " (.getErrorCode n))))
-      )
+      (let [exceptMsg (.getMessage e)
+            sqlExceptMsg (sql-except-str-extension e)]
+        ;;(vLogfile/progress-entry [i] )  don't do it here. Responsible of main program
+        (if ClojureTrace
+          (do  
+            (when (seq msg)
+              (println "DETAILS: " msg))
+            (print-throwable e)
+            (when (seq sqlExceptMsg)
+              (println sqlExceptMsg))
+            (println "\nSTACKTRACE:")
+            (print-stack-trace e)
+            (println "CAUSE-TRACE with depth " CauseDepth ":")
+            (print-cause-trace e CauseDepth))
+          (do 
+            (println msg 
+                   "\nException of type: " (class e))
+            (if-let [rootCause (root-cause e)]
+              (print-stack-trace rootCause)
+              (println "No root-cause given"))
+            (println "Message: " exceptMsg)
+            (when (seq sqlExceptMsg)
+              (println sqlExceptMsg))))))
     (str msg  "(Exception is nil)")))
 
 (defn report 
