@@ -253,7 +253,7 @@
   ([wb start rows]  ;; default to insert in first sheet
    (merge-rows wb 0 start rows))
   ([wb sheetId start rows]
-    (let [wb (assoc wb :currSht (get-sheet sheetId))]
+    (let [wb (assoc wb :currSht (get-sheet wb sheetId))] ;; temporary add currenSheet
       (doall
         (map
           (fn [rownum vals] (doall (map #(set-cell wb rownum %1 %2) (iterate inc 0) vals)))

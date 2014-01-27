@@ -37,7 +37,9 @@
 (defn- join-aux
    "do the natural inner join of the relations from xrels and store data under xrelkeys (defaults to :s0, :s1, ...)"
   [xrels matchKeys xrelKeys & opts ]
-  {:pre [(sequential? xrels) (sequential? matchKeys) (or (nil? xrelKeys) (sequential? xrelKeys))]}
+  {:pre [(sequential? xrels) 
+         (and (sequential? matchKeys) (not (some (comp not keyword?) matchKeys)))
+         (or (nil? xrelKeys) (sequential? xrelKeys))]}
   (let [lpf "(vRelation/join-aux): "]
     (when  (< (count xrels) 2)
       (vExcept/throw-except lpf "A join requires at least two input relations."))
