@@ -115,7 +115,7 @@
                 (except-str msg e))]
       (set-lastException e)
       (when (seq msg)
-      (error msg)))))
+        (error msg)))))
 
 
 

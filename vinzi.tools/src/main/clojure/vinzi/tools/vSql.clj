@@ -601,6 +601,7 @@
 (defn get-col-info 
   "get information on all columns (limited set) ordered by ordinal position.
    (Assumes that the table is located in the current catalog)."
+  ;; TODO: derive a get-column defsfs that uses my naming schema :nme etc... (see write-as-full-rows!)
   [schema tblNme]
   (let [catalog (let [conn (sql/connection)]
                   (if (re-find #"\.mysql\." (str conn))
@@ -734,6 +735,26 @@
   (warn (apply str args)))
 
 
+
+(defn write-as-full-rows
+  "Write a dataset (records) as a sequence of full rows to a table.
+   None-existing fiels are padded with a nil-value.
+   (to prevent issues around column-naming in the (old) jdbc.library."
+  ([schema tbl data]
+    (let [colDefs (->> (get-col-info schema tbl)
+                       ;; get-col-info returns information_schema naming. Here need different naming
+                       (map #(set/rename-keys % {:column_name :nme :data_type :tpe}) )) ]
+      (write-as-full-rows schema tbl data colDefs)))
+  ([schema tbl data colDefs]
+    (let [lpf "(write-as-full-rows): "
+          qTbl (qsp schema tbl)
+          data (if (map? (first data))  ;; rewrite maps to vectors
+	         (let [ks (map #(keyword (:nme %)) colDefs)]
+		   (pdebug lpf " keysequence: " ks " (keys first): " (keys (first data)))
+				    (map #(map % ks) data))
+	         data)]
+      (apply sql/insert-rows qTbl data))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  Adds data to table with prependTag in front.
 ;;   Creates table if is does not exists
@@ -803,13 +824,14 @@
 		       (pdebug "string-representation of first row has size: " (count sRow))))
 		   ;; and write the data to the table
 		   (if (> (count data) 0)
-		     (let [_  (pdebug " prepepndTag=" prependTag " and (first data): " (take 3 data))
+		     (let [_  (pdebug " prependTag=" prependTag " and (first data): " (take 3 data))
 			   data (if prependTag
 				  (map #(if (map? %)
 					  (assoc % :tag prependTag)
 					  (vec (cons prependTag %))) data)
 				  data)
 			   _  (pdebug " prependTag=" prependTag " and (first data): " (take 3 data))
+                           ;; TODO: replace 6 lines by (write-full-rows)
 			   data (if (map? (first data))  ;; rewrite maps to vectors
 				  (let [ks (map #(keyword (:nme %)) colDefs)]
 				    (pdebug lpf " keysequence: " ks " (keys first): " (keys (first data)))
