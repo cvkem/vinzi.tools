@@ -1,6 +1,9 @@
 (ns vinzi.tools.vExcel
   (:use  [clojure.tools.logging :only [debug warn error]])
-  (:require [clojure.java.io :as io])
+  (:require [clojure.java.io :as io]
+            [vinzi.tools.inspect :as ins]
+            [debug-repl.debug-repl :as dr]
+            [vinzi.tools.vExcept :as vExcept])
   (:import ;[org.apache.poi.xssf.usermodel XSSFWorkbook]
            [org.apache.poi.hssf.usermodel HSSFWorkbook]
            [org.apache.poi.ss.usermodel Row Cell DateUtil WorkbookFactory CellStyle Font]))
@@ -172,19 +175,69 @@
 (defn get-lazy-sheet
   "Get a lazy sheet which excludes all empty rows. 
    Empty cells are patched with nils, to ensure columns stay aligned."
-  [{:keys [poiWb sheets] :as wb} sheetId]
-  (let [sheet (get-sheet wb sheetId) 
-        rows (seq sheet)
+  [{:keys [poiWb sheets] :as wb} sheetId & opts]
+  (let [lpf "(get-lazy-sheet): "
+        sheet (get-sheet wb sheetId) 
+        _ (println " parsing the opts: " opts)
+        opts (into {:evaluate true} (if (seq opts) (hash-map opts) {}))
+        evaluator (when (:evaluate opts)
+                    (println "Retrieve (formula-)evaluator")
+                    (.. poiWb (getCreationHelper) (createFormulaEvaluator)))
+        get-cellValue-content (fn [^org.apache.poi.ss.usermodel.CellValue cell]
+                           (condp = (.getCellType cell)
+                             Cell/CELL_TYPE_BLANK nil
+                             Cell/CELL_TYPE_STRING (.getStringCellValue cell)
+                             Cell/CELL_TYPE_NUMERIC (.getNumberValue cell)
+                             Cell/CELL_TYPE_BOOLEAN (.getBooleanCellValue cell)
+                             Cell/CELL_TYPE_FORMULA (vExcept/throw-except lpf "value can not be formula!!")
+                             Cell/CELL_TYPE_ERROR   (.getErrorValue cell) 
+                               (vExcept/throw-except lpf "unsupported type: " (.getCellType cell))))
+        get-cell-content (fn [^org.apache.poi.ss.usermodel.Cell cell]
+                           ;; if it is a cell return value.
+                           ;; (hwen evaluator is set formulas will be evaluated
+                           (when cell 
+                             (condp = (.getCellType cell)
+                               Cell/CELL_TYPE_BLANK nil
+                               Cell/CELL_TYPE_STRING (.getStringCellValue cell)
+                               Cell/CELL_TYPE_NUMERIC (if (DateUtil/isCellDateFormatted cell)
+                                                        (.getDateCellValue cell)
+                                                        (.getNumericCellValue cell))
+                               Cell/CELL_TYPE_BOOLEAN (.getBooleanCellValue cell)
+                               Cell/CELL_TYPE_FORMULA (if evaluator
+                                                        (let [;form (.getCellFormula cell)
+                                                              evalCell (.evaluate evaluator cell)]
+                                                         ;; (println " cell has formula: " form
+                                                          ;;         "\n\t and evaluates to: " evalCell )
+                                                         ;; (dr/debug-repl)
+                                                          (get-cellValue-content evalCell))
+                                                        {:formula (.getCellFormula cell)})
+                               Cell/CELL_TYPE_ERROR (if evaluator
+                                                      (.getErrorCelValue cell) ;; do not wrap
+                                                      {:error (.getErrorCellValue cell)})
+                                 (vExcept/throw-except lpf "unsupported type: " (.getCellType cell)))))
+        fill-gaps (fn [cells indexFn]
+                    ;; the iterator does not show empty ceels, so we have
+                    ;; to padd nils to keep columns aligned
+                    (let[idx    (map indexFn cells)
+                         nils   (map #(dec (- %1 %2)) idx (cons -1 idx))
+                         cells (map #(concat (repeat %1 nil) (list %2)) nils cells)]
+                       (apply concat cells)))
         unpack-row (fn [row]
-                     (let [cells (seq row)
-                           values (map cell-value cells)
-                           ;; the iterator does not show empty ceels, so we have
-                           ;; to padd nils to keep columns aligned
-                           idx    (map #(.getColumnIndex %) cells)
-                           nils   (map #(dec (- %1 %2)) idx (cons -1 idx))
-                           cells (map #(concat (repeat %1 nil) (list %2)) nils values)]
-                       (apply concat cells)))]
-   (map unpack-row rows))) 
+                     (when (seq row)
+                       (let [row (fill-gaps row #(.getColumnIndex %))]
+                         (map get-cell-content row))))
+;                           ;; the iterator does not show empty ceels, so we have
+;                           ;; to padd nils to keep columns aligned
+;                           idx    (map #(.getColumnIndex %) cells)
+;                           nils   (map #(dec (- %1 %2)) idx (cons -1 idx))
+;                           cells (map #(concat (repeat %1 nil) (list %2)) nils values)]
+;                       (apply concat cells)))
+;]
+        cells (map seq (seq sheet))  ;; seq sheet returns rows, seq of row are cells
+        ;; (first fill out empty rows;
+        cells (fill-gaps cells #(.getRowIndex (first %)))]
+    (map unpack-row cells)))
+
 
 (defn get-sheet-vecs
   "Return sheets as a vector of vectors (forces realisation.)"
