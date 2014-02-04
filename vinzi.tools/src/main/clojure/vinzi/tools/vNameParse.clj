@@ -19,6 +19,7 @@
      "van de"
      "van"
      "de la"
+     "den"
      "de"
      "la"
      "le"

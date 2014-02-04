@@ -202,7 +202,9 @@
     (reduce checked-add-kv {} kvSeq)) 
 
 (defn hmSeq-to-hashmap 
-  "Prepare a hash-map from a sequence of hashmaps using kkey as key and kval as value in the new hashmap."
+  "Prepare a hash-map from a sequence of hashmaps using kkey as key and kval as value in the new hashmap.
+   So we basically take two columns out of a dataset (xrel) and interpret them as a key-value pair."
+  ;; Translation of a sequence of vectors to hashmaps is in vCsv/csv-to-map
   [hmSeq kkey kval]
   (kvSeq-to-hashmap (map #(vector (% kkey) (% kval)) hmSeq)))
 

@@ -66,6 +66,7 @@
   ([csv lowCaseKey]
     (let [lpf "(csv-to-map): "
           header (->> (first csv)
+                      (map str)  ;; ensure numbers are translated to strings!
                      (map name)
                      (map str/trim)
                      (map #(if lowCaseKey (str/lower-case %) %))
