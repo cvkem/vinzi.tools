@@ -18,7 +18,9 @@
   and storing all other data in a separate map under the 'otherKeys'.
   Used to prepare relations for a set/join"
   [recs kKeys otherKey]
-  {:pre [(or (set? recs) (sequential? recs)) (sequential? kKeys) (keyword? otherKey)]}
+  {:pre [(or (set? recs) (sequential? recs)) 
+         (sequential? kKeys) 
+         (keyword? otherKey)]}
   (let [split-rec-aux (fn [rec]
                         (let [nk (-> rec
                                  (keys)
@@ -34,10 +36,36 @@
 
 
 
+(defn extract-recs
+  "Extract-records does the inverse of split-recs. It takes the main record, 
+   merges in the maps that belong to insertKeys and removes all removeKeys. 
+   So extract-recs can be used to extract the original dataset after a merge.
+  The set is returned as a sequence, so it might contains duplicates."
+  ([xrel insertKeys]
+     (extract-recs insertKeys ()))
+  ([xrel insertKeys removeKeys]
+    {:pre [(or (set? xrel) (sequential? xrel)) 
+           (sequential? insertKeys) 
+           (or (sequential? removeKeys) (nil? removeKeys))]}
+    (let [lpf "(extract-recs): "
+          removeKeys (if (seq removeKeys)
+                       (concat insertKeys removeKeys)
+                       insertKeys)
+          merge-rec (fn [rec]
+                      (let [base (apply dissoc rec removeKeys)
+                            toMerge (->> (map #(get rec %) insertKeys)
+                                         (remove nil? ))]  ;; merge on nils seems to work
+                        (apply merge base toMerge)))]
+      (map merge-rec xrel))))
+
+
+                            
+
+
 (defn- join-aux
    "do the natural inner join of the relations from xrels and store data under xrelkeys (defaults to :s0, :s1, ...)"
   [xrels matchKeys xrelKeys & opts ]
-  {:pre [(sequential? xrels) 
+  {:pre [(and (sequential? xrels) (every? #(or (set? %) (sequential? %)) xrels))
          (and (sequential? matchKeys) (not (some (comp not keyword?) matchKeys)))
          (or (nil? xrelKeys) (sequential? xrelKeys))]}
   (let [lpf "(vRelation/join-aux): "]

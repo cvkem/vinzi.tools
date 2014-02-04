@@ -31,11 +31,23 @@
 
 
 
-(deftest split-rec-test
+(deftest split-recs-test
   (are [rec ks ok res] (= (vRel/split-recs rec ks ok ))
        (list (first joinA)) [:k] :jk  {:jk {:x \a}, :k 1}
        joinA [:k] :jk    '({:jk {:x \a}, :k 1} {:jk {:x "AA"}, :k 1} {:jk {:x \b}, :k 2}))
      )
+
+(deftest extract-recs-test
+  (are [xrel insKeys remKeys res]  (= (set (vRel/extract-recs xrel insKeys remKeys)) res)
+       (list {:a 1 :b {:x 2}})  '(:b)  nil  #{{:a 1 :x 2}}
+       (list {:a 1 :b {:x 2}})  '(:b)  ()  #{{:a 1 :x 2}}
+       (list {:a 1 :b {:x 2}} {:a -1 :b {:x -2}})  '(:b)  nil  
+           #{{:a 1 :x 2} {:a -1 :x -2}}
+       (list {:a 1 :b {:x 2} :c {:y :a}} {:a -1 :b {:x -2} :c {:y :b}})  '(:b)  nil  
+           #{{:a 1 :x 2 :c {:y :a}} {:a -1 :x -2 :c {:y :b}}}
+       (list {:a 1 :b {:x 2} :c {:y :a}} {:a -1 :b {:x -2} :c {:y :b}})  '(:b)  '(:c)  
+           #{{:a 1 :x 2 } {:a -1 :x -2 }}
+       ))
 
 
 
@@ -214,4 +226,180 @@
         list_x set_z list_y [:X :Z :Y]   res1full_3   
         )
   ) 
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Some more tests with string keys
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(def list_x2  '({:key "A" :x 1}
+               {:key "B" :x 2}))
+(def set_x2 (set list_x2))
+
+(def list_y2 '({:key "B" :y 2}
+               {:key "C" :y 3}))
+(def set_y2 (set list_y2))
+
+(def list_z2 '({:key "A" :z 1}
+              {:key "B" :z 2}
+               {:key "C" :z 3}))
+(def set_z2 (set list_z2))
+
+
+(def res2 #{{:key "B" 
+            :X {:x 2} 
+            :Y {:y 2}}})
+
+(deftest test-natural-inner-join-2
+  (are [l r xrelKeys res]  (= (vRel/natural-inner-join [l r] [:key] xrelKeys) res)
+        list_x2 list_y2 [:X :Y]   res2
+        set_x2 set_y2   [:X :Y]   res2
+        list_x2 set_y2  [:X :Y]   res2
+        set_x2 list_y2  [:X :Y]   res2
+       ;; reverse options 
+        list_y2 list_x2 [:Y :X]   res2
+        ;; no names provided
+;;        list_x2 list_y2 nil   res2ano
+ ;;       set_x2 set_y2   nil   res2ano
+       ))
+
+ (def res2left #{;; first item
+                 {:key "A" 
+                  :X {:x 1} } 
+                 ;; second item
+                 {:key "B" 
+                  :X {:x 2} 
+                  :Y {:y 2}}}) 
+
+;; also used for the reversed left-join
+ (def res2right #{;; first item
+                 {:key "C" 
+                  :Y {:y 3} } 
+                 ;; second item
+                 {:key "B" 
+                  :X {:x 2} 
+                  :Y {:y 2}}}) 
+
+(deftest test-left-outer-join-2
+  (are [l r xrelKeys res]  (= (vRel/left-outer-join [l r] [:key] xrelKeys) res)
+        list_x2 list_y2 [:X :Y]   res2left
+        set_x2 set_y2   [:X :Y]   res2left
+        list_x2 set_y2  [:X :Y]   res2left
+        set_x2 list_y2  [:X :Y]   res2left
+       ;; reverse options 
+        list_y2 list_x2 [:Y :X]   res2right
+       )
+  )
+
+
+ (def res2full #{;; first item
+                 {:key "C" 
+                  :Y {:y 3} } 
+                 ;; second item
+                 {:key "B" 
+                  :X {:x 2} 
+                  :Y {:y 2}}
+                 {:key "A"
+                  :X {:x 1}}}) 
+
+(deftest test-full-outer-join-2
+  (are [l r xrelKeys res]  (= (vRel/full-outer-join [l r] [:key] xrelKeys) res)
+        list_x2 list_y2 [:X :Y]   res2full
+        set_x2 set_y2   [:X :Y]   res2full
+        list_x2 set_y2  [:X :Y]   res2full
+        set_x2 list_y2  [:X :Y]   res2full
+       ;; reverse options 
+        list_y2 list_x2 [:Y :X]   res2full
+       ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Some more tests with multiple string keys
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(def list_x3  '({:key "A" :key2 :a :x 1}
+               {:key "B" :key2 :b :x 2}))
+(def set_x3 (set list_x3))
+
+(def list_y3 '({:key "B" :key2 :b :y 2}
+               {:key "C" :key2 :c :y 3}))
+(def set_y3 (set list_y3))
+
+(def list_z3 '({:key "A" :key2 :a :z 1}
+              {:key "B" :key2 :b :z 2}
+               {:key "C" :key2 :c :z 3}))
+(def set_z3 (set list_z3))
+
+
+(def res3 #{{:key "B" 
+             :key2 :b
+            :X {:x 2} 
+            :Y {:y 2}}})
+
+(deftest test-natural-inner-join-3
+  (are [l r xrelKeys res]  (= (vRel/natural-inner-join [l r] [:key :key2] xrelKeys) res)
+        list_x3 list_y3 [:X :Y]   res3
+        set_x3 set_y3   [:X :Y]   res3
+        list_x3 set_y3  [:X :Y]   res3
+        set_x3 list_y3  [:X :Y]   res3
+       ;; reverse options 
+        list_y3 list_x3 [:Y :X]   res3
+        ;; no names provided
+;;        list_x2 list_y2 nil   res2ano
+ ;;       set_x2 set_y2   nil   res2ano
+       ))
+
+ (def res3left #{;; first item
+                 {:key "A" :key2 :a
+                  :X {:x 1} } 
+                 ;; second item
+                 {:key "B"  :key2 :b
+                  :X {:x 2} 
+                  :Y {:y 2}}}) 
+
+;; also used for the reversed left-join
+ (def res3right #{;; first item
+                 {:key "C" :key2 :c
+                  :Y {:y 3} } 
+                 ;; second item
+                 {:key "B" :key2 :b
+                  :X {:x 2} 
+                  :Y {:y 2}}}) 
+
+(deftest test-left-outer-join-3
+  (are [l r xrelKeys res]  (= (vRel/left-outer-join [l r] [:key :key2] xrelKeys) res)
+        list_x3 list_y3 [:X :Y]   res3left
+        set_x3 set_y3   [:X :Y]   res3left
+        list_x3 set_y3  [:X :Y]   res3left
+        set_x3 list_y3  [:X :Y]   res3left
+       ;; reverse options 
+        list_y3 list_x3 [:Y :X]   res3right
+       )
+  )
+
+
+ (def res3full #{;; first item
+                 {:key "C" 
+                  :key2 :c
+                  :Y {:y 3} } 
+                 ;; second item
+                 {:key "B" 
+                  :key2 :b
+                  :X {:x 2} 
+                  :Y {:y 2}}
+                 {:key "A"
+                  :key2 :a
+                  :X {:x 1}}}) 
+
+(deftest test-full-outer-join-3
+  (are [l r xrelKeys res]  (= (vRel/full-outer-join [l r] [:key :key2] xrelKeys) res)
+        list_x2 list_y2 [:X :Y]   res2full
+        set_x2 set_y2   [:X :Y]   res2full
+        list_x2 set_y2  [:X :Y]   res2full
+        set_x2 list_y2  [:X :Y]   res2full
+       ;; reverse options 
+        list_y2 list_x2 [:Y :X]   res2full
+       ))
+
 
