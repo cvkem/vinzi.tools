@@ -18,6 +18,20 @@
 ;;  Handling commandline parameters and options.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn get-options 
+  "Opts should be a single hashmap or a sequence of options (key-value pairs).
+  The defaults are a hash-map showing defaults."
+  [opts defaults]
+  (let [lpf "(v.t.vParams/get-options): "]
+     (->> (if (and (= (count opts) 1) (map? (first opts)))
+            opts
+            (if (even? (count opts))
+              (apply hash-map opts)
+              (vExcept/throw-except lpf "options should be an even number "
+              "(key-value pairs) or a single hashmap")))
+          (into defaults ))))
+
+
 
 (defn get-param "Extract a parameter staring with 'label=' from the
   argument list."
