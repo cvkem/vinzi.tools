@@ -5,6 +5,18 @@
  ;; (:refer-clojure)
   )
 
+
+;; Debugging tool, stored here as I do not have the right namespace for it yet.
+;; fits with inspection tools
+(def Debug true)
+(defmacro printlnD 
+  "Macro that inserts code for println when Debug true. 
+  Allows usage of (with-out-str ...) in args without a performance penalty when Debug false."
+  [& args]
+  (when Debug
+    `(prn ~@args)))
+
+
 ;;(refer-clojure)
 
 (defn find-symbol-in-ns [ns regExp]

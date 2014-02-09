@@ -4,6 +4,39 @@
         [clojure.tools [logging :only [error info trace debug warn]]])
    (:require [clojure.string :as str]))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  Namespace contains routines to parse a string representing a name to a hashmap
+;;  with keys (:firstnames :infix :lastnames)
+;;;;;;;;;;;;;;;;;;;;  NEXT STEPS/TODO;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  A better approache of name-parsing should also consider the - as a separator of first names
+;;  or a separator of birth-surname and partner surname.
+;;  The results should be a sequence of first names and a sequence of last-names+ infix.
+;;  The steps would be: 
+;;    Parse string from back to front, and:
+;;    1. Assume first item is surname
+;;    2. when next char is:
+;;         a.  [ \.]space of dot check whether it is an infix (and add i)
+;;              (otherwise switch to first-name parsing)
+;;         b.  [\-]  assume a second surname needs to be parsed
+;;         c.  [,]  you've just found the first-names instead of surnames. so 
+;;             copy  surnames to firstnames and start parsing surnames again.
+;;    3. Parse remainder of string as a series of firstnames.
+;;
+;;    See vinzi.eis.scipio.beaufortMatch.clj for a different implementation of matchers.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;  fuzzy name-matcher  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;  Make a name-matcher that matches a sequence of names to another sequence and 
+;;  generate the most likely match by:
+;;     1. preparing alternative interpretations of strings with different likelyhood
+;;     2. Finding the best covering match (lowest penalty) and thus using global information
+;;         to decide on the best matching when multiple matches are present. 
+;;         (under the assumption that a one-to-one mapping should be found. (multi-match is flag)
+;;  This could also be used to introduced alternative mapping (for example for surnames containing infix
+;;  or first names in one set and initials in the other set instead of the first names.
+;;         
+;;    See vinzi.eis.scipio.beaufortMatch.clj for an example of likelyhoods in (find-matches-anchorModel ).
+;;
+;;  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def infix-mask
   ;; greed match, so order prefixes in decreasing number of parts (and from long to shorter)
@@ -26,6 +59,7 @@
      "in het"
      "in 't"
      "vd"
+     "v.d."
      "vden"]))
   
 (defn split-name 
