@@ -7,12 +7,12 @@
 ;; Jan 31, 2010
 
 ;; Copyright (c) George Jahad, Alex Osborne and Contributors. All
-;; rights reserved. The use and distribution terms for this software
+;; rights reserved.  The use and distribution terms for this software
 ;; are covered by the Eclipse Public License 1.0
 ;; (http://opensource.org/licenses/eclipse-1.0.php) which can be found
-;; in the file epl-v10.html at the root of this distribution. By
+;; in the file epl-v10.html at the root of this distribution.  By
 ;; using this software in any fashion, you are agreeing to be bound by
-;; the terms of this license. You must not remove this notice, or any
+;; the terms of this license.  You must not remove this notice, or any
 ;; other, from this software.
 
 ;; Contributors:
@@ -27,16 +27,16 @@
 ;; that.
 
 ;; My initial implementation modified the compiler to store references
-;; to the lexical scope in a dynamic var. Then, in Clojure proper, I
+;; to the lexical scope in a dynamic var.  Then, in Clojure proper, I
 ;; added a special version of eval that used that var. It wrapped the
 ;; form being eval'ed in a "let" that emulated the original lexical
 ;; scope, something like this:
 
-;; `(eval
-;; (let [~@(make-let-bindings lexical-scope-var)]
-;; ~form))
+;;        `(eval
+;;            (let [~@(make-let-bindings lexical-scope-var)]
+;;              ~form))
 
-;; Alex's insight was that no compiler changes were required. That
+;; Alex's insight was that no compiler changes were required.  That
 ;; such a dynamic var already existed and is exposed to Clojure at
 ;; macro expansion time.
 
@@ -90,7 +90,7 @@ values."
   (reset! element (first form))
   (throw quit-dr-exception))
 
-(def ^:dynamic exit-dr-exception
+(def ^:dynamic  exit-dr-exception
      (Throwable. "Exiting back to main repl from debug-repl"))
 
 (defn exit-dr []
@@ -105,7 +105,7 @@ values."
 (defmacro debug-repl
   "Starts a REPL with the local bindings available."
   ([]
-     '(debug-repl.debug-repl/debug-repl nil))
+     `(debug-repl nil))
   ([form]
      `(let [counter# (inc-counter)
             eval-fn# (partial eval-with-locals (local-bindings))]
