@@ -62,9 +62,10 @@
                        ))
         append-line (fn [line]
                       (swap! read-log (fn [rl]
-                                        (if (> (count (:lineSeg rl)) 20)
-                                          (collect-lines rl)
-                                          (assoc rl :lineSeg (conj (:lineSeg rl) line)))))) 
+                                        (let [rl (assoc rl :lineSeg (conj (:lineSeg rl) line))]
+                                          (if (> (count (:lineSeg rl)) 20) ;;; coollect afte n chars
+                                            (collect-lines rl)
+                                            rl)))))
         get-lastRead #(-> (swap! read-log collect-lines)
                           (dissoc :lineSeg))
         logReader (proxy [java.io.Reader] []
@@ -86,6 +87,7 @@
                                     (let[content (if (= (class buff) java.nio.CharBuffer)
                                                    (.toString buff)
                                                    (apply str buff))]
+                                      (println "   with content buff=" content)
                                       (append-line content)))
                                  ret))
                        ([buff off len] ;;(println "read with 3 pars")
@@ -160,7 +162,7 @@
   "Read a form from a resource. The 'pb-reader' is a reader
    containing the content. Normally you should use read-form-str or read-form-file
    to read a (series) of forms.
-   Returns an array with one or more forms (so adds an additional array!)"
+   Returns an array with one or more forms (so adds an additional set of array-brackets!)"
   [pb-reader]
   (letfn [(skip-start-form 
             [f]
@@ -253,7 +255,7 @@
 
 
 (defn read-edn-file 
-  "Reads a single form of a file 'f'. If you like to put multiple data-item in a file,
+  "Reads a edn-data from a file 'f'. If you like to put multiple data-item in a file,
    store it in a container (list, vector, hash-map).
    Does extended error reporting via log-reader to show exactly the location where
    reading failed in case of an error."
@@ -261,6 +263,15 @@
 ;;  (with-open [stream (java.io.PushbackReader. (java.io.FileReader. fName))]
 ;;    (edn/read stream)))
  (logged-read edn/read (get-log-file-reader f)))
+
+
+(defn read-edn-string
+  "Reads a edn-data from string 's'. If you like to put multiple data-item in a file,
+   store it in a container (list, vector, hash-map).
+   Does extended error reporting via log-reader to show exactly the location where
+   reading failed in case of an error."
+  [s]
+  (logged-read edn/read (get-log-str-reader s)))
 
 (def ^:dynamic debugging false)
 

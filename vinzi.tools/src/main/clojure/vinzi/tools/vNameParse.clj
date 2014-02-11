@@ -13,13 +13,14 @@
 ;;  The results should be a sequence of first names and a sequence of last-names+ infix.
 ;;  The steps would be: 
 ;;    Parse string from back to front, and:
-;;    1. Assume first item is surname
+;;    0. Replace '\s*-\s*'  by '-'  (and do same for ","
+;;    1. Assume last item is surname
 ;;    2. when next char is:
 ;;         a.  [ \.]space of dot check whether it is an infix (and add i)
 ;;              (otherwise switch to first-name parsing)
 ;;         b.  [\-]  assume a second surname needs to be parsed
 ;;         c.  [,]  you've just found the first-names instead of surnames. so 
-;;             copy  surnames to firstnames and start parsing surnames again.
+;;             copy  surnames to firstnames and start parsing surnames again.  (or check this before analysis)
 ;;    3. Parse remainder of string as a series of firstnames.
 ;;
 ;;    See vinzi.eis.scipio.beaufortMatch.clj for a different implementation of matchers.
