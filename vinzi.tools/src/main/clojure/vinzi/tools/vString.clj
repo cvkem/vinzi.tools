@@ -114,33 +114,27 @@
   (letfn [(replace-par
             [{:keys [code replCnt]} [k v]]
             (let [lpf "(replace-par): "]
-              (if (and code k (not (nil? v)))
+              (if (and code k ) ;;(not (nil? v))) check follows later
                 (let [pat (re-pattern (str (first brackets)  (name k) (second brackets)))
                       cnt (count (re-seq pat code))]
                   ;;(println "pattern =" pat)
+                  (when (and (> cnt 0) (nil? v))
+                    (vExcept/throw-except lpf cnt " occurances of key " k " but no value passed " v))
                   (when (replCnt k)
-                    ;; TODO: replace with one-liner vExcept/throw-except
-                    (let [msg (str lpf "The parameter " k " is defined more than once")]
-                      (error msg)
-                      (throw (Exception. msg))))
+                    (vExcept/throw-except lpf "The parameter " k " is defined more than once"))
                   (debug lpf "execute replace " pat " --> " v)
                   (trace lpf " in query: " code " (" cnt " replacements)")
-                  ;;(println lpf "execute replace " pat " --> " v)
-                  ;;(println lpf " cleaned: " (escape-replace-str (str v)))
 
                   (let [res 
                   {:code (str/replace code pat (escape-replace-str (str v)))
                    :replCnt (assoc replCnt k cnt)}]
                     ;;(println "result of replacement: " res)
                     res))
-                ;; TODO: replace with one-liner vExcept/throw-except
-                (let [msg (str  lpf "missing one or more parameters:"
+                (vExcept/throw-except lpf "missing one or more parameters:"
                                 "\n\ttemplate=" code
                                 "\n\treplace-key=" k
                                 "\n\treplace-val=" v
-                                "\n\tother-params=" (dissoc params k))]
-                  (error msg)
-                  (throw (Exception. msg))))))]
+                                "\n\tother-params=" (dissoc params k)))))]
          (let [lpf "(replace-pars): "
                cumm {:code code :replCnt {} }
                cumm (reduce replace-par cumm (seq params))]
