@@ -2,7 +2,9 @@
    (:use	[clojure [pprint :only [pprint pp]]]
         [clojure [stacktrace :only [print-stack-trace root-cause]]]
         [clojure.tools [logging :only [error info trace debug warn]]])
-   (:require [clojure.string :as str]))
+   (:require [clojure.string :as str]
+             [vinzi.tools 
+              [vExcept :as vExcept]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  Namespace contains routines to parse a string representing a name to a hashmap
@@ -13,10 +15,11 @@
 ;;  The results should be a sequence of first names and a sequence of last-names+ infix.
 ;;  The steps would be: 
 ;;    Parse string from back to front, and:
-;;    0. Replace '\s*-\s*'  by '-'  (and do same for ","
-;;    1. Assume last item is surname
+;;    0. Replace '\s*-\s*'  by '-'  
+;;    1. If string contains , assume lastname, first-name format (open issue, is suffix with last or first name?)
+;;       otherwise assume <first-names> <infix <lstanem>-
 ;;    2. when next char is:
-;;         a.  [ \.]space of dot check whether it is an infix (and add i)
+;;         a.  [ \.]space of dot check whether it is an infix (and add it)
 ;;              (otherwise switch to first-name parsing)
 ;;         b.  [\-]  assume a second surname needs to be parsed
 ;;         c.  [,]  you've just found the first-names instead of surnames. so 
@@ -39,14 +42,7 @@
 ;;
 ;;  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def infix-mask
-  ;; greed match, so order prefixes in decreasing number of parts (and from long to shorter)
-  ;; a function is applied over the list to replace "van den"  with " van\s*den " (to match one or more spaces between infix parts
-  ;; and add the surrounding spaces and to match first and last parts of the name
-  ((fn [infs]
-     (let [make-mask (fn [inf]
-                       (re-pattern (str "(?iu)^([\\w\\s\\-\\.]*) (" (str/replace inf #"\s+" "\\\\s+") ") ([\\w\\s\\-]*)$"))) ]
-     (map make-mask infs)))
+(def infix
     ["v d"
      "van der"
      "van den"
@@ -59,9 +55,20 @@
      "le"
      "in het"
      "in 't"
-     "vd"
+     "vd"       ;; samenvoeging
      "v.d."
-     "vden"]))
+     "vden"  ;; geen formele afkorting
+     "vder"    ;; samenvoeging van van der
+     ])
+
+(def infix-mask
+  ;; greed match, so order prefixes in decreasing number of parts (and from long to shorter)
+  ;; a function is applied over the list to replace "van den"  with " van\s*den " (to match one or more spaces between infix parts
+  ;; and add the surrounding spaces and to match first and last parts of the name
+  ((fn [infs]
+     (let [make-mask (fn [inf]
+                       (re-pattern (str "(?iu)^([\\w\\s\\-\\.]*) (" (str/replace inf #"\s+" "\\\\s+") ") ([\\w\\s\\-]*)$"))) ]
+     (map make-mask infs))) infix))
   
 (defn split-name 
   "Split a name in :firstnames, :infix and :lastnames. If there is no infix we split on whitespace and assume the last part
@@ -112,3 +119,69 @@
                    (interleave (repeat "."))
                    ((partial apply str)))]
     (assoc rec :initials initials  :abbrev abbrev)))
+
+(defn- rev-str 
+  "Reverse the string."
+  [s]
+  (apply str (reverse s)))
+
+(defn find-tail 
+  "match the regular expression 're' backward over the string and 
+   return the split string [head matched-tail]"
+  [s re]
+  (let [rs (rev-str s)
+        tail (re-find re rs)]
+    (if (seq tail)
+      [(subs s 0 (- (count s) (count tail))) 
+       (rev-str tail)]
+      [s nil])))
+
+(def rev-infix (map (juxt #(re-pattern (str "^" (str/replace (rev-str %) #"\." "\\\\.")) %)))
+
+(defn find-infix-tail
+  [s]
+  (let [rs (rev-str s)
+        infix (loop [ri rev-infix]
+                (when ri
+                  (let [[pat infix] (first ri)]
+                    (if (re-find pat rs)
+                      infix
+                      (recur (next ri))))))]
+    [(subs s 0 (- (count s) (count infix))) infix]))
+        
+(defn split-name2
+  [s]
+  (let [lpf "(split-name2): "
+        normalize #(-> %
+                       (str/replace #"\s*-\s*" "-")
+                       (str/replace #"\s+" " "))
+        first-last-order #(let [parts (->> (str/split % #",")
+                                           (map str/trim ))]
+                            (condp = (count parts)
+                              1 %
+                              2 (str (last parts) " " (first parts))
+                              (vExcept/throw-except lpf " string contains more than one ','. Can not parse it)")))
+        find-surname (fn [s]
+                       (let [[head surname] (find-tail s #"^\w+")
+                              lst (last head)]
+                         (if (#{\. \space} lst)
+                           (let [head (if (= lst \space) (apply str (drop-last head)) head)
+                                 [head infix] (find-infix-tail head)]
+                             [head {:surname surname
+                                    :infix   infix}])
+                           [head {:surname surname
+                                  :infix   nil}])))
+                             
+        s (-> s
+              (normalize )
+              (first-last-order ))
+        [s surName2] (find-surname s)
+        [s surName1] (if (= (last s) \-)
+                       (find-surname (apply str (drop-last s)))
+                       [s nil])
+        firstNames (str/split s #"\s")]
+    {:firstNames firstNames
+     :surnames   (if (seq surName1) [surName1 surName2] [surName2])}
+    )))
+
+        
