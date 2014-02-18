@@ -888,13 +888,16 @@
   {:pre [(string? schema) (string? tbl) (keyword idKey) (sequential? recs)]}
   (let [lpf "(update-recs): "
         colDefs (get-col-info schema tbl)
+        _ (debug lpf "colDefs=" (prn-str colDefs))
         typemap (zipmap (map (comp keyword :column_name) colDefs)
                         (map (comp keyword :data_type) colDefs))
+        _ (debug lpf "typemap= " (prn-str typemap))
         get-type (fn [k]
                    (if-let [tp (typemap k)] 
                      tp 
                      (vExcept/throw-except lpf "Key: " idKey " not found in table having keys: " (keys typemap))))
         idTpe (get-type idKey)
+        _ (debug lpf "typemap= " (prn-str typemap))
         get-kv-str (fn [[k v]]
                      ;;(println "vSQL:TMP-get-kv-str  k="k "  and v= "v)
                      (str (qs (name k)) "=" (get-sql-str-val v (get-type k))))
