@@ -40,7 +40,9 @@
         `(throw (Exception. (str ~@msg))))))
 
 (defmacro report-throw-except
-  "Report the exception and subsequently throw it."
+  "Report the exception and subsequently throw it.
+   If the last msgCause is a Throwable it will be reported as the cause
+   of the exception that is generated."
   [& msgCause]
   ;; TODO: remove the apply st or let it be evaluated at run-time to expand arguments correctly
     (let [msg (if (isa? (last msgCause) java.lang.Throwable)
@@ -55,6 +57,17 @@
         `(let [except# (Exception. (str ~@msg))]
            (vinzi.tools.vExcept/report except#)
            (throw except#)))))
+
+
+(defmacro check
+ "Check the assertion, when if fails throw the exception.
+  If the symbol 'lpf' exists it will be prefixed to the exception."
+  [assertion & msgs]
+  (if (resolve 'lpf)
+    `(when-not ~assertion
+       (throw-except lpf " assertion: " (pr-str '~assertion) " failed. " ~@msgs))
+    `(when-not ~assertion
+       (throw-except "Assertion: " (pr-str '~assertion) " failed. " ~@msgs))))
 
 
 (defn sql-except-str-extension
