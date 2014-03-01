@@ -211,7 +211,7 @@
         x))))
         
 (defmacro lfs 
-  "Capture the output of the second application of of form 'x'. 
+  "Capture the output of the second application of form 'x'. 
   The first iteration of is thrown away to ensure the print-statements by 
    lazy computations does not get mingled with the desired output
    for logging (and is neither printed to the standard-output).
