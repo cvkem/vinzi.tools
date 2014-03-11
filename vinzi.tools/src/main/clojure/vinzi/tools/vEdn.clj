@@ -36,8 +36,9 @@
   "Return a reader that maintains a log of read strings. 
    This log-reader can be queried via (report-error-status)
    to get more detailled error-messages."
-  [rdr]
-  (let [MaxChars 160
+  [rdr & opts]
+  (let [opts (apply hash-map opts)
+        MaxChars (if-let [max-chars (:max-chars opts)] max-chars 160)
         read-log (atom {:lineSeg []
                         :lineNr  1
                         :lastRead ""})
@@ -66,8 +67,15 @@
                                           (if (> (count (:lineSeg rl)) 20) ;;; coollect afte n chars
                                             (collect-lines rl)
                                             rl)))))
+        ;; get the most recent read part (up to MaxChars) as a string.
+        ;; (keep the data in the buffers too.)
         get-lastRead #(-> (swap! read-log collect-lines)
                           (dissoc :lineSeg))
+        ;; get last read and clear buffers, except for :lineNr
+        ;; returns a hash-map with :lastREad and :lineNr
+        get-clear-lastRead! #(let [content (swap! read-log collect-lines)]
+                               (swap! read-log assoc :lastRead "")
+                               (dissoc content :lineSeg))
         logReader (proxy [java.io.Reader] []
                      (close [] ;;(println "Close")
                                (.close rdr))
@@ -108,14 +116,18 @@
                               ;; and forwards orig-reader (without mark/reset)
                               (let [ca (char-array MaxChars)
                                     ret (.read rdr ca) 
-                                    tail (if (>= ret 0) "..." "")
-                                    ca (apply str ca) 
+                                    tail (if (>= ret MaxChars) "..." "")
+                                    ca  (if (> ret 0)
+                                          (apply str ca) 
+                                          "") ;; content undefined when EOF
                                     {:keys [lastRead lineNr]} (get-lastRead)
                                     head (if (< (count lastRead) MaxChars) ": " ": ...")]
                                      (str "vEdn/log-reader Error when reading line "
                                           lineNr head 
                                           lastRead
-                                        "\nNEXT CHARS (max. " MaxChars "): " ca tail)))
+                                          (if (> ret 0)
+                                            (str "\nNEXT CHARS (max. " MaxChars "): " ca tail)
+                                            "EOF"))))
         ]
     {:orig-reader rdr
      :reader logReader
