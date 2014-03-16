@@ -16,10 +16,19 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  Handling commandline parameters and options.
+;;
+;;  Some of these functions work with a Properties-Defintion.
+;;  Such a properties-definition is a sequence of hash-maps with keys:
+;;     {:name  <keyword or string>
+;;      :type  <Supported types are: see vMap/get-map-type-convertor >
+;;      :default <Default values. Should be correct type already>}
+;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn get-options 
-  "Opts should be a single hashmap or a sequence of options (key-value pairs).
+  "Mainly to parse the & args' part of a function call.
+  Opts should be a single hashmap or a sequence of options 
+  (key-value pairs).
   The defaults are a hash-map showing defaults."
   [opts defaults]
   (let [lpf "(v.t.vParams/get-options): "]
@@ -74,7 +83,8 @@
 
 
 (defn commandline-override 
-  "Check if parameter (name k) exists in array of string args assuming each string represents a key=value.
+  "DEPRECATED: use (into props (get-properties-args args defArgs))
+  Check if parameter (name k) exists in array of string args assuming each string represents a key=value.
    If the key corresponding to (keyword k) exists in props.
     The value is stored with the same type as the current value under that key in props.
     NOTE/TODO: date-transformation is not supported yet."
@@ -110,15 +120,12 @@
   (do (debug msg (with-out-str (pprint r))) r))
 
 
-(defn get-properties 
+(defn get-properties-aux 
   "Get the properites of a file, keywordize them and transform them according to typeMap.
    A 'propDefs' is a sequence of maps with keys :name, :type and :default 
-   (where the value of :name is passed as a keyword).
-   Opts are:
-     :prefix filter properties having this prefix. The :name in 'propDefs' should 
-        be without the prefix."
-  [propFile propDefs & opts]
-  (let [lpf "(get-properties): "
+   (where the value of :name is passed as a keyword)."
+  [kvs propDefs ]
+  (let [lpf "(get-properties-aux): "
         opts (apply hash-map opts)
         typeMap (into {} (map #(vector (:name %) (:type %)) propDefs))
         defMap  (into {} (map #(vector (:name %) (:default %)) propDefs))
@@ -131,12 +138,7 @@
                                  (warn lpf "the properties: " (str/join ", " missingDef) 
                                     " don't have a definition in the typeMap, and will be dropped"))
                                props))]
-    (-> (if (.exists (java.io.File. propFile))
-          (-> propFile
-            (vProp/read-properties )
-            (vProp/filter-prefix (:prefix opts))
-            (vMap/keywordize false))
-          {}) ;; start with empty map and add the defaults.
+    (-> kvs
       ;;((partial show " keywordized="))
       (report-missing-def)
       ((partial into defMap ))
@@ -144,5 +146,52 @@
       ((vMap/get-map-type-convertor typeMap) )
       ((partial show " after type-conversion="))
       )))
+
+(defn get-properties-file 
+  "Get the properites of a file, keywordize them and transform them according to typeMap.
+   A 'propDefs' is a sequence of maps with keys :name, :type and :default 
+   (where the value of :name is passed as a keyword).
+   Opts are:
+     :prefix filter properties having this prefix. The :name in 'propDefs' 
+    should be without the prefix."
+  [propFile propDefs & opts]
+  (let [lpf "(get-properties): "
+        opts (apply hash-map opts)
+        kvs (if (.exists (java.io.File. propFile))
+              (-> propFile
+              (vProp/read-properties )
+              (vProp/filter-prefix (:prefix opts))
+              (vMap/keywordize false))
+            {})] ;; start with empty map and add the defaults.
+    (get-properties-aux kvs propDefs)))
+
+
+(defn get-properties
+  "DEPRECATED: use name get-properties-file"
+  [propFile propDefs & opts]
+  (apply get-properties-file propFile propDefs opts))
+
+
+(defn get-arguments
+  "Get the key-value pairs out of arguments and translate them
+  to a hash-map using types and defaults from propDefs."
+  [args propDefs]
+  (let [lpf "(get-arguments): "
+        get-kv (fn [s]
+                 (let [[k v & rst] (str/split s #"=")
+                       v (if (seq rst)
+                           (let [v (str v rst)]
+                             (warn lpf "string " s" containins multiple '='"
+                                 " assume value=" v)
+                             v)
+                           v)]
+                   (vExcept/check (seq k) 
+                     "Key required: k=" k)
+                   [k v]))
+        red-hm (fn [cumm s]
+                 (conj cumm (get-kv s)))
+        args-hm (reduce red-hm {} args)
+        ]
+   (get-properties-aux args-hm propDefs)))
 
 

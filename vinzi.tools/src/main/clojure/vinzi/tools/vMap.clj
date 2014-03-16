@@ -97,6 +97,36 @@
     (zipmap (map transform (keys m))
             (vals m)))))
 
+
+(defn parse-string-range 
+  "Parse a string that represents a (non-continuous) range.
+   The '-' connects continuous ranges, while ',' represent non-continuous
+   parts (represented by vectors in the output. 
+   Example: the string \"aa-bb,dd,ww-\" is represented as 
+     [[\"aa\" \"bb\"] \"dd\"  [\"ww\" nil]]
+   where the nil indicates an open end point" 
+  [s]
+  (let [lpf "(get-string-range): "
+        parts (str/split s #",")
+        process-part (fn [p]
+                       (let [parts (str/split p #"-")
+                             ;; check undefined end of range
+                             parts (if (= (last p) \-) 
+                                     (conj parts nil)
+                                     parts)
+                             ;; check undefined start of range
+                             parts (if (seq (first parts)) 
+                                     parts
+                                     (apply vector nil (rest parts)))]
+                         (vExcept/check (<= (count parts)) "Range should "
+                            "have two parts at most. Received: " p)
+                         (if (= (count parts) 1)
+                           (first parts)
+                           parts)))]
+    (vec (map process-part parts))))
+
+
+
 ;; TODO: see whether these convertors should be combined with convertors from vinzi.anchorModel.extractModel.convertors and vinzi.eis.scipio.extractModel
 ;;  currently only used in csv an olap4Clj
 ;;  Should be merged with vString/convert-type-params, which looks like a cleaner implementation. However, this version is more
@@ -106,7 +136,8 @@
   "Takes a map where values are the destination types and returns a function that 
   takes a map containing strings as values returns a new map with the string-values 
   converted to the types defined in type-map.
-   (type-map should contains types as returned by sql (meta-data))." 
+   (type-map should contain types as returned by sql (meta-data),
+    however, other types are such as :string-range are also supported.)." 
   ([typeMap] (get-map-type-convertor typeMap false))
   ([typeMap keepKeys]
   {:pre [(map? typeMap)]}
@@ -144,6 +175,8 @@
                                          Double/NaN))    ;; nil translates to NaN
                            (:string :text)
                                (fn [x] x)
+                           (:string-range)
+                               parse-string-range 
                            (:keyword)
                                (fn [x] (keyword (str x)))
                            (:date )  
