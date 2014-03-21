@@ -138,9 +138,18 @@
        ""
   ))
 
+(deftest test-drop-trailing-dot
+  ;; TEST is assuming linux file-separator !!
+  (are [x y] (= (vFile/drop-trailing-dot x) y)
+       "ble/." "ble" 
+       "ble"   "ble"
+       "ble."  "ble."))
 
 (deftest test-get-path-dir
-  (let [currDir (vFile/get-current-dir)]
+  (let [;currDir (vFile/get-current-dir true)
+        ;; under windows use
+        currDir (-> (vFile/get-current-dir)
+                     (vFile/drop-trailing-dot ))]
     (println "Running tests regarding file-expansion")
     (are [x y] (= (vFile/get-path-dir x) y)
          "test"          currDir

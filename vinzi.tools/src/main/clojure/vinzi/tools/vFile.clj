@@ -144,12 +144,23 @@
                 (reduce revFilename  (reverse rst)))
          tail (filename base2 tail)]
     (filename base tail))))
-  
+
+ (defn drop-trailing-dot
+  "Drop the trailing '/.' of a path string."
+  [path]
+  (let[trailing (apply str (drop (-> (count path) (- 2)) path))] 
+    (if (= trailing (str FileSep \.))
+      (apply str (drop-last 2 path))
+      path))) 
   
 (defn get-current-dir 
   "Get the canonical path (no trailing /)" 
-  []
-  (.getAbsolutePath (java.io.File. ".")))  ;; .getCanonical might fail on windows (canonical uses '/')
+  ([] 
+   (get-current-dir false))
+  ([canonical]
+    (if canonical
+      (.getCanonicalPath (java.io.File. "."))
+      (.getAbsolutePath (java.io.File. ".")))))  ;; .getCanonical might fail on windows (canonical uses '/')
 
 
 (defn extend-path "Extend a 'path' by prefixing the current directory to relative paths.
@@ -193,6 +204,13 @@
                                 " first argument should be absolute path."
                                 " Received: " base))))))
 
+(defn drop-trailing-dot
+  "Drop the trailing '/.' of a path string."
+  [path]
+  (let[trailing (apply str (drop (-> (count path) (- 2)) path))] 
+    (if (= trailing (str FileSep \.))
+      (apply str (drop-last 2 path))
+      path)))
 
 (defn get-path-dir 
   "Return the containing directory/folder of path. If path ends in directory then the parent directory will be returned. "
