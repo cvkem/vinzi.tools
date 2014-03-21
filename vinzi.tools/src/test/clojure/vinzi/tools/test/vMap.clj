@@ -100,7 +100,9 @@
        :boolean      "F"       false
        :keyword      "test"    :test
        :keyword      "5"       :5
-       :double       "2.3" 2.3)
+       :double       "2.3" 2.3
+       :string-range "aa-bb,dd,ww-" [["aa" "bb"] "dd" ["ww" nil]]
+       )
   
   (let [mc (vMap/get-map-type-convertor {:i "integer" :d :double :s "text"})]
     (is (= (map (mc {:i " 1" :d "1.0" :s "abc"}) [:i :d :s]) '(1 1.0 "abc"))
@@ -111,6 +113,8 @@
   (let [inp {"Test" 1 :KEYW 2}]
     (is (= (vMap/keywordize inp) {:Test 1 :KEYW 2}))
     (is (= (vMap/keywordize inp true) {:test 1 :keyw 2}))))
+
+
 
 (deftest test-checked-add-kv
   (are [curr add  res] (= (vMap/checked-add-kv curr add) res)
@@ -132,13 +136,37 @@
        )
   )
 
-(are [hm add res] (= (vMap/checked-merge hm add) res)
-   {:a 1} {:b 2}  {:a 1 :b 2}
-   {} {:b 2}  {:b 2}
+
+
+(deftest test-checked-merge
+  (are [hm add res] (= (vMap/checked-merge hm add) res)
+     {:a 1} {:b 2}  {:a 1 :b 2}
+     {} {:b 2}  {:b 2}
+  )
+
+  (are [hm add] (thrown? Exception (vMap/checked-merge hm add))
+     {:a 1} {:a 2} 
+     {:a 1} {:a 1} 
+     {:a 1 :b 2} {:b 2} 
+  )
 )
 
-(are [hm add] (thrown? Exception (vMap/checked-merge hm add))
-   {:a 1} {:a 2} 
-   {:a 1} {:a 1} 
-   {:a 1 :b 2} {:b 2} 
-)
+
+(deftest test-parse-string-range
+  (are [args res] (= (vMap/parse-string-range args) res)
+       "aa"   ["aa"]
+       "aa-bb" [["aa" "bb"]]
+       "aa-" [["aa" nil]]
+       "-aa" [[nil "aa"]]
+       "aa,bb" ["aa" "bb"]
+      )) 
+
+
+(deftest test-get-map-type-convertor-2
+  (let [ loc-args (vMap/get-map-type-convertor {:locs :string-range}) ]
+  (are [args res] (= (loc-args args) res)
+        {:locs "aa"}   {:locs ["aa"]}
+        {:locs "aa-bb"} {:locs [["aa" "bb"]]}
+      )) 
+    )
+
