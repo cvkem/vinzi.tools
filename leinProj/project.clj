@@ -1,8 +1,6 @@
 (defproject
  vinzi/vinzi.tools
  "0.2.0-SNAPSHOT"
- :parent
- [no-artifact]
  :dependencies
  [[org.clojure/clojure "1.5.1"]
     ;;  temporary add it. Should only be called on the repl
@@ -25,5 +23,12 @@
  :repositories
  {"Clojars" "http://clojars.org/repo",
   "Clojure Releases" "http://build.clojure.org/releases"}
+:pom-plugins [[com.theoryinpractise/clojure-maven-plugin "1.3.13"
+                                ;; this section is optional, values have the same syntax as pom-addition
+               [:sourceDirectories [:sourceDirectory "src"]]
+               [:extensions "true"]
+               [:executions ([:execution [:id "clojure-compile"]
+                                        [:phase "compile"]
+                                        [:goals [:goal "compile"]]])]]]
  :description
  "Set of (generic) auxiliary functions to support vinzi libraries, programs and tools")
